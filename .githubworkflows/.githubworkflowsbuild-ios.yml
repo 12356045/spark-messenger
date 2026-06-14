@@ -37,16 +37,16 @@ jobs:
         run: npx cap sync ios
         shell: bash
         
-      - name: Build iOS app
+      - name: Build unsigned iOS app
         run: |
           cd ios/App
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -archivePath App.xcarchive archive
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -archivePath App.xcarchive archive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
         shell: bash
         
       - name: Create IPA
         run: |
           cd ios/App
-          mkdir Payload
+          mkdir -p Payload
           cp -r App.xcarchive/Products/Applications/App.app Payload/
           zip -r SPARK.ipa Payload
         shell: bash
