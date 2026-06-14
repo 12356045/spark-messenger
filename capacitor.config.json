@@ -3,10 +3,7 @@
   "appName": "SPARK",
   "webDir": "www",
   "server": {
-    "androidScheme": "https",
-    "iosScheme": "capacitor",
-    "hostname": "localhost",
-    "allowNavigation": ["*"]
+    "androidScheme": "https"
   },
   "ios": {
     "contentInset": "always",

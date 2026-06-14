@@ -1,0 +1,58 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install Capacitor
+        run: npm install -g @capacitor/cli
+        shell: bash
+        
+      - name: Install dependencies
+        run: npm install
+        shell: bash
+        
+      - name: Create www folder
+        run: |
+          mkdir -p www
+          cp index.html www/
+          cp script.js www/
+          cp style.css www/
+        shell: bash
+        
+      - name: Sync Capacitor
+        run: npx cap sync ios
+        shell: bash
+        
+      - name: Build iOS app
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -archivePath App.xcarchive archive
+        shell: bash
+        
+      - name: Create IPA
+        run: |
+          cd ios/App
+          mkdir Payload
+          cp -r App.xcarchive/Products/Applications/App.app Payload/
+          zip -r SPARK.ipa Payload
+        shell: bash
+        
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: SPARK.ipa
+          path: ios/App/SPARK.ipa
