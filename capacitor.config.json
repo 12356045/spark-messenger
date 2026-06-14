@@ -1,0 +1,15 @@
+{
+  "appId": "com.spark.messenger",
+  "appName": "SPARK",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "capacitor",
+    "hostname": "localhost",
+    "allowNavigation": ["*"]
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#1a1a2e"
+  }
+}
