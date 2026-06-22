@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPARK — Скачать</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a14">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" href="icon.png">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0a0a14;
+            --card: rgba(255,255,255,0.06);
+            --border: rgba(255,255,255,0.1);
+            --accent: #6c5ce7;
+            --accent2: #a29bfe;
+            --text: #f5f5f7;
+            --text2: rgba(255,255,255,0.5);
+            --green: #34c759;
+            --blue: #007aff;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 80px 20px 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(108,92,231,0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+
+        .logo svg { width: 56px; height: 56px; }
+
+        .logo h1 {
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #fff, var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 18px;
+            color: var(--text2);
+            max-width: 480px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .version-badge {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 6px 16px;
+            border-radius: 20px;
+            background: rgba(108,92,231,0.15);
+            border: 1px solid rgba(108,92,231,0.3);
+            color: var(--accent2);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .platforms {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px 60px;
+        }
+
+        .platform-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+            transition: transform 0.3s, border-color 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .platform-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent);
+        }
+
+        .platform-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .platform-card:hover::after { opacity: 1; }
+
+        .platform-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .platform-icon.windows { background: rgba(0,122,255,0.15); color: var(--blue); }
+        .platform-icon.macos { background: rgba(255,255,255,0.1); color: #fff; }
+        .platform-icon.android { background: rgba(52,199,89,0.15); color: var(--green); }
+        .platform-icon.ios { background: rgba(255,255,255,0.1); color: #fff; }
+
+        .platform-card h3 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .platform-card .desc {
+            font-size: 14px;
+            color: var(--text2);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: 14px;
+            border: none;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: #fff;
+        }
+
+        .download-btn:hover { transform: scale(1.03); }
+        .download-btn:active { transform: scale(0.97); }
+
+        .download-btn.primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            box-shadow: 0 4px 20px rgba(108,92,231,0.4);
+        }
+
+        .download-btn.secondary {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--border);
+        }
+
+        .file-info {
+            font-size: 12px;
+            color: var(--text2);
+            margin-top: 10px;
+        }
+
+        /* iOS Instructions Section */
+        .instructions-section {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+
+        .instructions-section h2 {
+            font-size: 32px;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .instructions-section .subtitle {
+            text-align: center;
+            color: var(--text2);
+            margin-bottom: 40px;
+            font-size: 16px;
+        }
+
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        .step {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .step-num {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 900;
+            flex-shrink: 0;
+        }
+
+        .step-content { flex: 1; }
+        .step-content h4 { font-size: 16px; margin-bottom: 6px; }
+        .step-content p { font-size: 14px; color: var(--text2); line-height: 1.5; }
+
+        .step-image {
+            width: 100%;
+            max-width: 340px;
+            margin: 12px auto 0;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            border-top: 1px solid var(--border);
+            color: var(--text2);
+            font-size: 13px;
+        }
+
+        .footer a {
+            color: var(--accent2);
+            text-decoration: none;
+        }
+
+        @media (max-width: 600px) {
+            .hero h1 { font-size: 36px; }
+            .hero { padding: 60px 16px 30px; }
+            .platforms { padding: 20px 16px 40px; }
+            .step { flex-direction: column; align-items: center; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="hero">
+    <div class="logo">
+        <svg viewBox="0 0 56 56" fill="none"><rect width="56" height="56" rx="14" fill="#6c5ce7"/><path d="M28 12L34 22L42 16L38 30L46 34L36 34L38 46L28 36L18 46L20 34L10 34L18 30L14 16L22 22Z" fill="#fff"/></svg>
+        <h1>SPARK</h1>
+    </div>
+    <p>Мессенджер нового поколения. Быстрые сообщения, звонки, каналы и многое другое.</p>
+    <div class="version-badge">v2.0.1 — Новая версия</div>
+</div>
+
+<div class="platforms">
+    <!-- Windows -->
+    <div class="platform-card">
+        <div class="platform-icon windows">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3 12V6.75L10 5.44V12H3ZM11 5.22L20 3.5V12H11V5.22ZM11 12.78V20.5L3 18.95V12H11ZM12 12.78H20V20.5L12 18.78V12.78Z"/></svg>
+        </div>
+        <h3>Windows</h3>
+        <div class="desc">Нативное приложение для Windows 10/11. Полнофункциональный мессенджер с поддержкой звонков и уведомлений.</div>
+        <a href="https://github.com/12356045/spark-messenger/releases/latest/download/SPARK-Setup.exe" class="download-btn primary" id="win-dl-btn">
+            <i class="fas fa-download"></i> Скачать для Windows
+        </a>
+        <div class="file-info">SPARK-Setup.exe • Windows 10/11 • NSIS Installer</div>
+    </div>
+
+    <!-- macOS -->
+    <div class="platform-card">
+        <div class="platform-icon macos">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5C17.88 20.74 17 21.95 15.66 21.97C14.32 21.99 13.89 21.18 12.37 21.18C10.84 21.18 10.37 21.95 9.1 21.99C7.79 22.03 6.8 20.68 5.96 19.47C4.25 16.99 2.97 12.5 4.7 9.44C5.55 7.93 7.13 6.97 8.82 6.95C10.1 6.93 11.32 7.83 12.11 7.83C12.9 7.83 14.35 6.76 15.93 6.92C16.6 6.95 18.38 7.19 19.55 8.92C19.46 8.98 17.39 10.17 17.41 12.67C17.44 15.65 20.05 16.67 20.08 16.68C20.05 16.75 19.66 18.15 18.71 19.5ZM13 3.5C13.73 2.67 14.94 2.04 15.94 2C16.07 3.17 15.6 4.35 14.9 5.19C14.21 6.04 13.07 6.7 11.95 6.61C11.8 5.46 12.36 4.26 13 3.5Z"/></svg>
+        </div>
+        <h3>macOS</h3>
+        <div class="desc">Нативное приложение для Mac. Работает на macOS Ventura и выше. Поддержка Dark Mode и Touch Bar.</div>
+        <a href="https://github.com/12356045/spark-messenger/releases/latest/download/SPARK.dmg" class="download-btn primary" id="mac-dl-btn">
+            <i class="fas fa-download"></i> Скачать для macOS
+        </a>
+        <div class="file-info">SPARK.dmg • macOS 13+ • ~75MB</div>
+    </div>
+
+    <!-- Android -->
+    <div class="platform-card">
+        <div class="platform-icon android">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18C6 18.55 6.45 19 7 19H8V20.5C8 21.33 8.67 22 9.5 22S11 21.33 11 20.5V19H13V20.5C13 21.33 13.67 22 14.5 22S16 21.33 16 20.5V19H17C17.55 19 18 18.55 18 18V8H6V18ZM9.5 6.5C9.5 7.33 8.83 8 8 8S6.5 7.33 6.5 6.5 7.17 5 8 5 9.5 5.67 9.5 6.5ZM15.5 6.5C15.5 7.33 14.83 8 14 8S12.5 7.33 12.5 6.5 13.17 5 14 5 15.5 5.67 15.5 6.5ZM18 4H6V8H18V4Z"/></svg>
+        </div>
+        <h3>Android</h3>
+        <div class="desc">Установите как PWA через браузер или скачайте APK напрямую. Работает на Android 8+.</div>
+        <a href="spark.apk" class="download-btn primary" download>
+            <i class="fas fa-download"></i> Скачать APK
+        </a>
+        <div class="file-info">spark.apk • Android 8+ • ~25MB</div>
+    </div>
+
+    <!-- iOS / iPhone -->
+    <div class="platform-card">
+        <div class="platform-icon ios">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14.5C15.5 12.43 17.18 10.75 19.25 10.75C19.33 10.75 19.41 10.75 19.5 10.77V10.75C19.5 8.18 17.42 6.1 14.85 6.1C12.28 6.1 10.2 8.18 10.2 10.75V10.77C10.29 10.75 10.37 10.75 10.45 10.75C12.52 10.75 14.2 12.43 14.2 14.5V17.5C14.2 17.78 13.98 18 13.7 18H12C11.72 18 11.5 17.78 11.5 17.5V14.5C11.5 13.12 10.38 12 9 12C7.62 12 6.5 13.12 6.5 14.5V17.5C6.5 17.78 6.28 18 6 18H4.3C4.02 18 3.8 17.78 3.8 17.5V14.5C3.8 11.46 6.24 9 9.25 9C9.33 9 9.42 9 9.5 9.01V9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9V9.01C14.58 9 14.67 9 14.75 9C17.76 9 20.2 11.46 20.2 14.5V17.5C20.2 17.78 19.98 18 19.7 18H18C17.72 18 17.5 17.78 17.5 17.5V14.5C17.5 12.43 15.82 10.75 13.75 10.75C13.67 10.75 13.59 10.75 13.5 10.77V10.75C13.5 8.18 11.42 6.1 8.85 6.1C6.28 6.1 4.2 8.18 4.2 10.75V10.77C4.29 10.75 4.37 10.75 4.45 10.75C6.52 10.75 8.2 12.43 8.2 14.5V17.5C8.2 17.78 7.98 18 7.7 18H6C5.72 18 5.5 17.78 5.5 17.5V14.5C5.5 13.12 4.38 12 3 12C1.62 12 0.5 13.12 0.5 14.5V17.5C0.5 17.78 0.28 18 0 18H-1.7C-1.98 18 -2.2 17.78 -2.2 17.5V14.5C-2.2 11.46 0.24 9 3.25 9"/></svg>
+        </div>
+        <h3>iPhone / iPad</h3>
+        <div class="desc">Добавьте SPARK на главный экран через Safari. Работает как полноценное приложение.</div>
+        <a href="https://spark-ead35.web.app" class="download-btn primary">
+            <i class="fas fa-external-link-alt"></i> Открыть SPARK
+        </a>
+        <div class="file-info">PWA — не требует установки из App Store</div>
+    </div>
+</div>
+
+<!-- iOS Installation Instructions -->
+<div class="instructions-section">
+    <h2>📱 Установка на iPhone</h2>
+    <p class="subtitle">Добавьте SPARK на главный экран за 4 шага</p>
+
+    <div class="steps">
+        <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+                <h4>Откройте SPARK в Safari</h4>
+                <p>Перейдите на <strong>spark-ead35.web.app</strong> в браузере Safari на вашем iPhone.</p>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+                <h4>Нажмите «Поделиться»</h4>
+                <p>Нажмите кнопку <strong>Поделиться</strong> (квадрат со стрелкой внизу Safari) и выберите <strong>«Показать ещё»</strong>.</p>
+                <img src="download-step2.png" class="step-image" alt="Нажмите Поделиться и Показать ещё" onerror="this.style.display='none'">
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+                <h4>Добавьте на экран «Домой»</h4>
+                <p>Прокрутите вниз и нажмите <strong>«Добавить на экран «Домой»»</strong>.</p>
+                <img src="download-step3.png" class="step-image" alt="Добавить на экран Домой" onerror="this.style.display='none'">
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-content">
+                <h4>Подтвердите добавление</h4>
+                <p>Нажмите <strong>«Добавить»</strong> в правом верхнем углу. SPARK появится на вашем главном экране!</p>
+                <img src="download-step4.png" class="step-image" alt="Нажмите Добавить" onerror="this.style.display='none'">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="footer">
+    <p>SPARK v2.0.1 &copy; 2024-2026. Создано с <span style="color:#ff3b30;">❤</span></p>
+    <p style="margin-top:8px;">
+        <a href="https://spark-ead35.web.app">Веб-приложение</a> &middot;
+        <a href="https://github.com/12356045/spark-messenger">GitHub</a>
+    </p>
+</div>
+
+<script>
+(async () => {
+    try {
+        const r = await fetch('https://api.github.com/repos/12356045/spark-messenger/releases/latest');
+        if (!r.ok) return;
+        const data = await r.json();
+        const assets = data.assets || [];
+        const winAsset = assets.find(a => a.name.endsWith('.exe'));
+        const macAsset = assets.find(a => a.name.endsWith('.dmg'));
+        const macZip = assets.find(a => a.name.endsWith('-mac.zip'));
+        if (winAsset) {
+            const btn = document.getElementById('win-dl-btn');
+            if (btn) { btn.href = winAsset.browser_download_url; btn.removeAttribute('id'); }
+            const info = document.querySelector('.platform-card:nth-child(1) .file-info');
+            if (info) info.textContent = winAsset.name + ' • Windows 10/11 • ' + Math.round(winAsset.size / 1024 / 1024) + 'MB';
+        }
+        if (macAsset) {
+            const btn = document.getElementById('mac-dl-btn');
+            if (btn) { btn.href = macAsset.browser_download_url; btn.removeAttribute('id'); }
+            const info = document.querySelector('.platform-card:nth-child(2) .file-info');
+            if (info) info.textContent = macAsset.name + ' • macOS 13+ • ' + Math.round(macAsset.size / 1024 / 1024) + 'MB';
+        }
+        if (data.tag_name) {
+            const badge = document.querySelector('.version-badge');
+            if (badge) badge.textContent = data.tag_name + ' — Новая версия';
+        }
+    } catch(e) {}
+})();
+</script>
+
+</body>
+</html>

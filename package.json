@@ -1,26 +1,111 @@
 {
-  "name": "spark",
-  "version": "1.0.0",
-  "description": "SPARK",
+  "name": "spark-messenger",
+  "version": "2.0.1",
+  "description": "SPARK Messenger — Powered by SparkEngine",
+  "main": "electron/main.js",
   "scripts": {
-    "build": "echo 'Build completed'"
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64",
+    "build:mac": "electron-builder --mac",
+    "build": "electron-builder --win --mac"
+  },
+  "build": {
+    "appId": "com.spark.messenger",
+    "productName": "SPARK",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "script.js",
+      "ui.js",
+      "helpers.js",
+      "desktop.css",
+      "style.css",
+      "firebase-config.js",
+      "firebase-app.js",
+      "webrtc.js",
+      "engine/**/*",
+      "electron/**/*",
+      "icon.png"
+    ],
+    "extraResources": [
+      {
+        "from": "icon.ico",
+        "to": "icon.ico"
+      },
+      {
+        "from": "icon.png",
+        "to": "icon.png"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "icon.ico",
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false,
+      "forceCodeSigning": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "installerHeaderIcon": "icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SPARK",
+      "installerLanguages": ["1049"],
+      "language": "1049"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "icon.png",
+      "category": "public.app-category.social-networking"
+    },
+    "dmg": {
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "icon": "icon.png",
+      "category": "Network;InstantMessaging"
+    },
+    "forceCodeSigning": false
   },
   "dependencies": {
+    "@capacitor/android": "^5.7.8",
     "@capacitor/core": "^5.7.8",
     "@capacitor/ios": "^5.7.8"
   },
   "devDependencies": {
-    "@capacitor/cli": "^5.7.8"
+    "@capacitor/cli": "^5.7.8",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "electron-updater": "^6.0.0",
+    "firebase-tools": "^15.22.0",
+    "png2icons": "^2.0.1"
   },
-  "main": "script.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/12356045/spark-messenger.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "SPARK",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/12356045/spark-messenger/issues"
   },

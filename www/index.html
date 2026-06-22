@@ -2,310 +2,1333 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>SPARK</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" href="/icon.png">
-    <link rel="apple-touch-icon" href="/icon.png">
-    <meta name="theme-color" content="#667eea">
-    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>SPARK PREMIUM</title>
+    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
         :root {
-            --screen-padding: 50px;
-            --island-top: 55px;
+            --bg: #000000;
+            --bg-gradient: linear-gradient(180deg, #000000 0%, #0a0a0a 50%, #000000 100%);
+            --card: rgba(255, 255, 255, 0.06);
+            --card-glass: rgba(255, 255, 255, 0.04);
+            --text: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.55);
+            --border: rgba(255, 255, 255, 0.12);
+            --accent: #ffffff;
+            --accent-soft: rgba(255, 255, 255, 0.12);
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+            --spring: cubic-bezier(0.16, 1, 0.3, 1);
+            --bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --radius-lg: 22px;
+            --radius-md: 16px;
+            --radius-sm: 10px;
+            --chat-bg: #000000;
         }
 
-        body {
-            font-family: system-ui, -apple-system, 'Inter', 'Segoe UI', sans-serif;
-            height: 100vh;
+        body.light {
+            --bg: #ffffff;
+            --bg-gradient: linear-gradient(180deg, #ffffff 0%, #f5f5f5 50%, #ffffff 100%);
+            --card: rgba(0, 0, 0, 0.04);
+            --card-glass: rgba(0, 0, 0, 0.03);
+            --text: #000000;
+            --text-secondary: rgba(0, 0, 0, 0.5);
+            --border: rgba(0, 0, 0, 0.1);
+            --accent: #000000;
+            --accent-soft: rgba(0, 0, 0, 0.08);
+            --chat-bg: #f8f8f8;
+        }
+
+        /* Темы обоев чата с оригинальным премиальным темным паттерном Telegram (смайлики) */
+        .messages-area.wp-grid { 
+            background-color: #050508 !important; 
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='%23ffffff' fill-opacity='0.02'><path d='M12 25a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 1a5 5 0 1 1 0-10 5 5 0 0 1 0 10zM55 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 1a4 4 0 1 1 0-8 4 4 0 0 1 0 8zM32 50c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3zm0 1c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zM68 60a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 1a5 5 0 1 1 0-10 5 5 0 0 1 0 10zM20 70c2 0 3.5-1.5 3.5-3.5S22 63 20 63s-3.5 1.5-3.5 3.5 1.5 3.5 3.5 3.5zm0 1c-2.5 0-4.5-2-4.5-4.5s2-4.5 4.5-4.5 4.5 2 4.5 4.5-2 4.5-4.5 4.5z'/><path d='M25 15l2 3h-4zm30 45l3-2-1-3zm-42 18l5-1-2-2zM65 25l1 5-4-2z'/></g></svg>") !important;
+            background-repeat: repeat !important;
+        }
+        .messages-area.wp-oled { background-color: #000000 !important; background-image: none !important; }
+        .messages-area.wp-dots {
+            background-color: #000 !important;
+            background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px) !important;
+            background-size: 20px 20px !important;
+        }
+        .messages-area.wp-lines {
+            background-color: #000 !important;
+            background-image: repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(255,255,255,0.03) 19px, rgba(255,255,255,0.03) 20px) !important;
+        }
+        .messages-area.wp-space {
+            background-color: #0a0a14 !important;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><g fill='none' stroke='%233a2d6b' stroke-width='1' opacity='0.4'><circle cx='30' cy='40' r='8'/><circle cx='30' cy='40' r='12' stroke-dasharray='2 3'/><ellipse cx='140' cy='30' rx='10' ry='6'/><ellipse cx='140' cy='30' rx='16' ry='10' stroke-dasharray='2 3'/><circle cx='80' cy='120' r='5'/><path d='M160 140l8-20h-16z'/><circle cx='160' cy='125' r='3'/><path d='M50 160l3-8h-6z'/><line x1='100' y1='60' x2='105' y2='55'/><line x1='105' y1='55' x2='110' y2='60'/><line x1='110' y1='60' x2='108' y2='68'/><line x1='108' y1='68' x2='102' y2='68'/><line x1='102' y1='68' x2='100' y2='60'/><circle cx='170' cy='90' r='2' fill='%233a2d6b'/><circle cx='15' cy='130' r='2' fill='%233a2d6b'/><circle cx='120' cy='170' r='1.5' fill='%233a2d6b'/><circle cx='60' cy='20' r='1.5' fill='%233a2d6b'/><circle cx='180' cy='160' r='1' fill='%233a2d6b'/><path d='M90 10l2-5 2 5'/><path d='M88 12l4-1 4 1'/><rect x='88' y='12' width='8' height='4' rx='1'/></g></svg>") !important;
+            background-repeat: repeat !important;
+        }
+
+        .settings-list {
+            background: var(--card);
+            border-radius: 12px;
+            margin: 0 16px;
             overflow: hidden;
-            transition: background 0.3s ease;
+            border: 1px solid var(--border);
         }
-
-        /* ТЕМЫ - РАБОТАЮТ */
-        body[data-theme="dark"] { background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%); }
-        body[data-theme="purple"] { background: linear-gradient(135deg, #2d1b4e 0%, #4a00e0 100%); }
-        body[data-theme="blue"] { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); }
-        body[data-theme="pink"] { background: linear-gradient(135deg, #ff6b9d 0%, #ff2e63 100%); }
-
-        body[data-theme="purple"] .welcome-screen { background: linear-gradient(135deg, #2d1b4e 0%, #4a00e0 100%); }
-        body[data-theme="blue"] .welcome-screen { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); }
-        body[data-theme="pink"] .welcome-screen { background: linear-gradient(135deg, #ff6b9d 0%, #ff2e63 100%); }
-
-        body[data-theme="purple"] .features-screen,
-        body[data-theme="purple"] .auth-screen,
-        body[data-theme="purple"] .password-screen,
-        body[data-theme="purple"] .messenger-screen { background: linear-gradient(135deg, #2d1b4e 0%, #4a00e0 100%); }
-
-        body[data-theme="blue"] .features-screen,
-        body[data-theme="blue"] .auth-screen,
-        body[data-theme="blue"] .password-screen,
-        body[data-theme="blue"] .messenger-screen { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); }
-
-        body[data-theme="pink"] .features-screen,
-        body[data-theme="pink"] .auth-screen,
-        body[data-theme="pink"] .password-screen,
-        body[data-theme="pink"] .messenger-screen { background: linear-gradient(135deg, #ff6b9d 0%, #ff2e63 100%); }
-
-        /* Свайп-скрины */
-        .swipe-screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+        .settings-item {
             display: flex;
-            flex-direction: column;
-            transition: transform 0.4s ease, opacity 0.3s;
-        }
-        .swipe-screen.hidden { transform: translateX(-100%); opacity: 0; pointer-events: none; }
-
-        /* Приветственный экран */
-        .welcome-screen {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            justify-content: center;
             align-items: center;
-            text-align: center;
+            gap: 14px;
+            padding: 14px 16px;
+            cursor: pointer;
+            transition: background 0.15s;
+            font-size: 15px;
+            border-bottom: 1px solid var(--border);
         }
-        .welcome-logo i { font-size: 140px; color: white; text-shadow: 0 10px 40px rgba(0,0,0,0.3); animation: float 3s ease-in-out infinite; }
-        @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
-        .welcome-title { font-size: 56px; font-weight: 800; color: white; margin-top: 20px; }
-        .welcome-subtitle { font-size: 18px; color: rgba(255,255,255,0.9); margin-top: 10px; margin-bottom: 40px; }
-        .swipe-indicator { position: absolute; bottom: 50px; left: 0; right: 0; text-align: center; animation: bounce 1.5s infinite; }
-        @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(10px); } }
-        .swipe-indicator i { font-size: 34px; color: white; }
-        .swipe-indicator p { color: white; font-size: 14px; margin-top: 8px; }
+        .settings-item:last-child { border-bottom: none; }
+        .settings-item:hover { background: rgba(255,255,255,0.04); }
+        .settings-item:active { background: rgba(255,255,255,0.08); }
 
-        /* Экран возможностей */
-        .features-screen {
-            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 40px;
+        .drawer-item {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 20px; cursor: pointer; font-size: 15px;
+            transition: background 0.15s; color: var(--text);
         }
-        .beta-text { font-size: 80px; font-weight: 900; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 30px; }
-        .features-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 400px; margin: 40px auto; }
-        .feature-item { background: rgba(255,255,255,0.08); backdrop-filter: blur(20px); border-radius: 24px; padding: 20px; width: calc(50% - 10px); border: 1px solid rgba(255,255,255,0.1); }
-        .feature-item i { font-size: 32px; color: #667eea; margin-bottom: 10px; }
-        .feature-item span { color: white; font-size: 13px; }
-        .start-chat-btn { background: linear-gradient(135deg, #667eea, #764ba2); border: none; padding: 16px 40px; border-radius: 40px; color: white; font-size: 18px; font-weight: 600; cursor: pointer; }
+        .drawer-item:hover { background: rgba(255,255,255,0.06); }
+        .drawer-item:active { background: rgba(255,255,255,0.1); }
 
-        /* Экран авторизации */
-        .auth-screen, .password-screen {
-            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { min-height: 100%; width: 100%; background: var(--bg); }
+        body { background: var(--bg-gradient), var(--bg); color: var(--text); min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif; overflow: hidden; }
+        body::before { content: ""; position: fixed; inset: 0; background: radial-gradient(circle at 20% 30%, rgba(255,255,255,0.03), transparent 25%), radial-gradient(circle at 80% 70%, rgba(255,255,255,0.02), transparent 20%); pointer-events: none; z-index: -1; animation: bgPulse 8s ease-in-out infinite alternate; }
+        @keyframes bgPulse { 0% { opacity: 0.6; } 100% { opacity: 1; } }
+
+        .glass-bg-glow {
+            position: fixed; inset: 0; z-index: -1;
+            background: none;
         }
-        .auth-card { background: rgba(30,30,40,0.6); backdrop-filter: blur(30px); border-radius: 32px; padding: 40px 28px; width: 100%; max-width: 340px; text-align: center; border: 1px solid rgba(255,255,255,0.15); }
-        .auth-card i { font-size: 60px; color: #667eea; margin-bottom: 15px; }
-        .auth-card h2 { color: white; font-size: 28px; margin-bottom: 20px; }
-        .auth-card p { color: rgba(255,255,255,0.7); margin-bottom: 24px; }
-        .input { width: 100%; padding: 14px 18px; margin-bottom: 12px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 30px; color: white !important; font-size: 16px; outline: none; }
-        .input::placeholder { color: rgba(255,255,255,0.5); }
-        .input:focus { border-color: #667eea; background: rgba(255,255,255,0.2); }
-        .btn { width: 100%; padding: 14px; border: none; border-radius: 30px; font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 10px; }
-        .btn.primary { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
-        .btn.secondary { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); }
-        .error { color: #ff4757; font-size: 12px; margin-top: 8px; }
 
-        /* Основной экран */
-        .messenger-screen {
+        #splash {
+            position: fixed; inset: 0; background: #000000; z-index: 10000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.8s var(--spring);
+        }
+        .splash-content { position: relative; display: flex; align-items: center; justify-content: center; gap: 20px; width: auto; min-width: 360px; min-height: 140px; }
+        #welcomeTitle { font-size: 46px; font-weight: 900; letter-spacing: 9px; opacity: 0; color: #fff; transform: translateX(-18px); animation: titleSlide 2.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        #splashBolt {
+            font-size: 72px; color: var(--accent);
+            position: relative; display: inline-block; transform-origin: center center;
+            animation: boltLaunch 3.2s cubic-bezier(0.16, 1, 0.3, 1) forwards, boltPulse 1.6s ease-in-out 2.8s 0.6s infinite alternate;
+            filter: drop-shadow(0 0 35px rgba(255,255,255,0.4));
+            will-change: transform, opacity;
+        }
+
+        @keyframes boltLaunch {
+            0% { transform: translate3d(-320px, -220px, 0) scale3d(0.35, 0.35, 1) rotate(-45deg); opacity: 0; }
+            18% { transform: translate3d(-90px, -140px, 0) scale3d(0.75, 0.75, 1) rotate(-12deg); opacity: 0.9; }
+            36% { transform: translate3d(0px, -60px, 0) scale3d(1.18, 1.18, 1) rotate(6deg); opacity: 1; }
+            56% { transform: translate3d(28px, 60px, 0) scale3d(1, 1, 1) rotate(110deg); opacity: 0.96; }
+            78% { transform: translate3d(140px, 110px, 0) scale3d(0.96, 0.96, 1) rotate(200deg); opacity: 0.9; }
+            100% { transform: translate3d(180px, 60px, 0) scale3d(0.92, 0.92, 1) rotate(270deg); opacity: 0.92; }
+        }
+
+        @keyframes boltPulse {
+            0% { transform: translate3d(180px, 60px, 0) scale3d(0.92, 0.92, 1); opacity: 0.92; }
+            50% { transform: translate3d(180px, 60px, 0) scale3d(1.04, 1.04, 1); opacity: 1; }
+            100% { transform: translate3d(180px, 60px, 0) scale3d(0.98, 0.98, 1); opacity: 0.9; }
+        }
+
+        @keyframes titleSlide {
+            0% { opacity: 0; transform: translateX(-24px); }
+            40% { opacity: 1; transform: translateX(-14px); }
+            100% { opacity: 1; transform: translateX(0); }
+        }
+
+        #swipeHint {
+            position: absolute; bottom: calc(60px + var(--safe-bottom));
+            opacity: 1;
+            font-size: 14px; letter-spacing: 4px; color: #fff; text-transform: uppercase;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+
+        .glass-panel {
+            background: var(--card-glass) !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
+            border-radius: var(--radius-lg);
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+            box-shadow: inset 0 1px 2px rgba(255,255,255,0.08), 0 12px 40px rgba(0,0,0,0.12);
+        }
+
+        .screen { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 9000; padding: 25px; transition: transform 0.5s var(--spring); }
+        .auth-card { width: 100%; max-width: 340px; text-align: center; }
+        .input { width: 100%; background: var(--card); border: 1px solid var(--border); padding: 18px; border-radius: var(--radius-md); color: var(--text); outline: none; margin: 10px 0; font-size: 16px; transition: all 0.3s var(--spring); }
+        .input:focus { border-color: var(--accent); }
+        .btn { width: 100%; padding: 16px 18px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--accent); color: var(--bg); font-weight: 900; cursor: pointer; text-transform: uppercase; transition: transform 0.25s var(--spring), box-shadow 0.25s ease, opacity 0.2s; box-shadow: 0 8px 24px rgba(255,255,255,0.08); letter-spacing: 0.5px; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(255,255,255,0.12); }
+        .btn:active { transform: scale(0.96); }
+
+        #app { display: none; height: 100dvh; flex-direction: column; padding-top: var(--safe-top); }
+        .tab-pane { display: none; height: 100%; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: calc(90px + var(--safe-bottom)); scroll-behavior: smooth; }
+        .tab-pane.active { display: flex; }
+
+        .search-area { padding: 18px 16px 8px; display: flex; flex-direction: column; gap: 8px; position: relative; z-index: 200; }
+        .search-box { flex: 1; background: var(--card); border-radius: 22px; display: flex; align-items: center; padding: 0 16px; border: 1px solid var(--border); backdrop-filter: blur(24px); transition: border-color 0.3s var(--spring), transform 0.3s var(--spring); animation: slideDown 0.5s var(--spring) backwards; }
+        .search-box:focus-within { border-color: rgba(255,255,255,0.35); transform: scale(1.01); }
+        .search-box input { flex: 1; background: none; border: none; padding: 16px 10px; color: var(--text); outline: none; font-size: 15px; }
+        .search-results { display: none; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; max-height: 280px; overflow-y: auto; animation: fadeSlideIn 0.35s var(--spring); backdrop-filter: blur(20px); }
+        .search-item { padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); transition: background 0.2s; animation: fadeSlideIn 0.3s var(--spring) backwards; }
+        .search-item:hover { background: rgba(255,255,255,0.05); }
+        .search-item-info strong { display: block; color: var(--text); font-size: 15px; }
+        .search-item-info small { color: var(--text-secondary); font-size: 12px; }
+        .search-item-actions { display: flex; gap: 8px; flex-shrink: 0; }
+        .search-empty { padding: 20px; text-align: center; color: var(--text-secondary); font-size: 14px; }
+        .small-btn { padding: 8px 14px; background: var(--accent); color: var(--bg); border: none; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 700; transition: transform 0.2s var(--bounce), opacity 0.2s; white-space: nowrap; }
+        .small-btn:hover { transform: scale(1.05); }
+        .small-btn:active { transform: scale(0.95); }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes animateIn { from { opacity: 0; transform: translateX(-20px) scale(0.96); } to { opacity: 1; transform: translateX(0) scale(1); } }
+        .animate-in { animation: animateIn 0.45s var(--spring) backwards; }
+
+        .list-container { flex: 1; overflow-y: auto; padding: 0 8px 90px; position: relative; z-index: 10; }
+        .section-header { padding: 12px 5px 6px; font-size: 12px; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+        
+        .chat-card {
+            display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 12px;
+            margin-bottom: 1px; cursor: pointer; transition: background 0.15s;
+            background: transparent; border: none;
+            -webkit-user-select: none; user-select: none;
+        }
+        .chat-card:hover { background: rgba(255,255,255,0.06); }
+        .chat-card:active { background: rgba(255,255,255,0.1); }
+        .chat-unread-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 22px; height: 22px; padding: 0 6px;
+            border-radius: 11px; background: var(--accent);
+            color: #fff; font-size: 12px; font-weight: 700; flex-shrink: 0;
+        }
+        .avatar { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border: none; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; flex-shrink: 0; font-weight: 800; font-size: 22px; color: var(--text); }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; border: none; }
+        .avatar-placeholder { width: 100%; height: 100%; border-radius: 50%; display: block; }
+
+        .status-badge {
+            position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px;
+            background: #ffffff; border: 2.5px solid var(--bg); border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255,255,255,0.5); z-index: 12;
+            animation: statusPulse 2s ease-in-out infinite;
+        }
+        @keyframes statusPulse {
+            0%, 100% { box-shadow: 0 0 8px rgba(255,255,255,0.4); transform: scale(1); }
+            50% { box-shadow: 0 0 16px rgba(255,255,255,0.8); transform: scale(1.15); }
+        }
+
+        /* ПАРЯЩАЯ КАПСУЛА НАВИГАЦИИ */
+        #btnHamburger { display: none !important; }
+        #btnHamburger2 { display: none !important; }
+
+        .footer { 
+            position: fixed; bottom: calc(15px + var(--safe-bottom)); left: 50%;
+            transform: translate3d(-50%, 0, 0); width: calc(100% - 30px); max-width: 400px; height: 60px;
+            border: 1px solid var(--border) !important; background: var(--card) !important;
+            display: flex; z-index: 100; border-radius: 30px !important;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5); overflow: hidden;
+            backdrop-filter: blur(20px); animation: footerSlideUp 0.6s var(--spring) 0.2s backwards;
+        }
+        @keyframes footerSlideUp { from { opacity: 0; transform: translate3d(-50%, 40px, 0); } to { opacity: 1; transform: translate3d(-50%, 0, 0); } }
+        .tab-btn { flex: 1; background: none; border: none; color: var(--text-secondary); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; cursor: pointer; transition: color 0.3s, transform 0.2s var(--bounce); }
+        .tab-btn.active { color: var(--accent); transform: scale(1.05); }
+        .tab-btn:active { transform: scale(0.92); }
+
+        .full-pane { position: fixed; inset: 0; background: var(--bg); z-index: 9000; display: none; flex-direction: column; padding: calc(15px + var(--safe-top)) 20px var(--safe-bottom); transform: translate3d(0, 100%, 0); transition: transform 0.55s var(--spring); overflow-y: auto; }
+        .full-pane.active { display: flex; transform: translate3d(0, 0, 0); animation: panelReveal 0.55s var(--spring); }
+        @keyframes panelReveal { from { opacity: 0.5; } to { opacity: 1; } }
+        .panel-nav { display: flex; align-items: center; gap: 20px; padding: 12px 0; font-size: 22px; font-weight: bold; margin-bottom: 20px; cursor: pointer; animation: slideDown 0.4s var(--spring); }
+        .panel-nav i { transition: transform 0.2s; }
+        .panel-nav i:active { transform: translateX(-4px); }
+
+        .theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 25px; }
+        .color-sq { aspect-ratio: 1; border-radius: var(--radius-md); cursor: pointer; transition: transform 0.3s var(--spring); border: 4px solid transparent; }
+        .color-sq.active { border-color: var(--text); transform: scale(1.1); }
+
+        /* ИНТЕРФЕЙС ЧАТА В СТИЛЕ ПАРЯЩЕЙ КАПСУЛЫ */
+        #chatView { position: fixed; inset: 0; background: var(--bg); z-index: 9500; display: none; flex-direction: column; padding-top: var(--safe-top); transition: transform 0.5s var(--spring); }
+        #chatView.chat-open { animation: chatSlideIn 0.45s var(--spring); }
+        @keyframes chatSlideIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+        
+        .chat-header { 
+            padding: 10px 12px; display: flex; align-items: center; gap: 10px;
+            margin: 10px 12px 8px !important; z-index: 1000;
+        }
+
+        .chat-header .hdr-capsule {
+            display: flex; align-items: center; gap: 8px;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 24px; padding: 6px 14px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.2); backdrop-filter: blur(12px);
+            transition: transform 0.2s var(--spring);
+        }
+        .chat-header .hdr-capsule:active { transform: scale(0.96); }
+
+        .chat-header .hdr-back {
+            cursor: pointer; color: var(--accent); font-size: 18px;
+            padding: 6px; border-radius: 50%;
+            transition: background 0.2s;
+        }
+        .chat-header .hdr-back:hover { background: rgba(255,255,255,0.1); }
+
+        .chat-header .hdr-info { cursor: pointer; text-align: center; min-width: 0; }
+        .chat-header .hdr-info h4 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; font-size: 14px; font-weight: 700; }
+        .chat-header .hdr-info small { color: var(--text-secondary); font-size: 11px; }
+
+        .hdr-actions {
+            display: flex; flex-direction: column; gap: 8px;
+            max-height: 0; overflow: hidden; opacity: 0;
+            transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease, margin-top 0.25s ease;
+            margin-top: 0;
+        }
+        .hdr-actions.open {
+            max-height: 100px; opacity: 1; margin-top: 10px;
+        }
+
+        .hdr-action-btn {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 10px 20px; border-radius: 14px; border: none;
+            background: var(--accent); color: #fff; font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: transform 0.2s, opacity 0.2s;
+        }
+        .hdr-action-btn:active { transform: scale(0.95); opacity: 0.8; }
+
+        .chat-header .hdr-avatar {
+            width: 40px; height: 40px; cursor: pointer; flex-shrink: 0;
+            border-radius: 50%; overflow: hidden;
+            border: 2px solid var(--accent); padding: 2px;
+            background: var(--card);
+        }
+        
+        .messages-area { 
+            flex: 1; overflow-y: auto; padding: 14px 16px 20px; display: flex; flex-direction: column; gap: 10px; 
+            background-color: var(--chat-bg);
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='88' height='88' viewBox='0 0 88 88'><g fill='%23ffffff' fill-opacity='0.02'><path d='M13 25a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 1a5 5 0 1 1 0-10 5 5 0 0 1 0 10zM56 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 1a4 4 0 1 1 0-8 4 4 0 0 1 0 8zM33 50c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3zm0 1c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zM69 60a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 1a5 5 0 1 1 0-10 5 5 0 0 1 0 10zM20 70c2 0 3.5-1.5 3.5-3.5S22 63 20 63s-3.5 1.5-3.5 3.5 1.5 3.5 3.5 3.5zm0 1c-2.5 0-4.5-2-4.5-4.5s2-4.5 4.5-4.5 4.5 2 4.5 4.5-2 4.5-4.5 4.5z'/><path d='M26 15l2 3h-4zm31 45l3-2-1-3zm-43 18l5-1-2-2zM66 25l1 5-4-2z'/></g></svg>");
+            background-repeat: repeat;
+            border-radius: 30px;
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: inset 0 0 40px rgba(255,255,255,0.02), inset 0 1px 2px rgba(255,255,255,0.06);
+        }
+        
+        .message { display: flex; width: 100%; }
+        .message.my-message { justify-content: flex-end; }
+        .message-bubble { 
+            padding: 12px 16px; 
+            font-size: 15px; 
+            line-height: 1.45; 
+            display: flex; 
+            flex-direction: column; 
+            position: relative; 
+            max-width: 76%;
+            min-width: 80px; 
+            word-break: break-word;
+            border-radius: 24px;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.12);
+            transition: transform 0.2s ease;
+        }
+        .message-bubble:hover { transform: translateY(-1px); }
+        .message.my-message .message-bubble { 
+            align-self: flex-end; 
+            background: var(--accent); 
+            color: var(--bg); 
+            border-radius: 24px 24px 8px 24px;
+            box-shadow: 0 8px 24px rgba(255,255,255,0.08);
+        }
+        .message:not(.my-message) .message-bubble { 
+            align-self: flex-start; 
+            background: rgba(255,255,255,0.08); 
+            color: var(--text); 
+            border-radius: 24px 24px 24px 8px;
+            border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: inset 0 1px 2px rgba(255,255,255,0.08);
+        }
+        .message-time { 
+            font-size: 11px; 
+            opacity: 0.72; 
+            margin-top: 8px; 
+            text-align: right; 
+        }
+        .msg-meta { 
+            font-size: 10px; 
+            opacity: 0.6; 
+            margin-top: 6px; 
+            align-self: flex-end; 
             display: flex;
-            flex-direction: column;
-            height: 100%;
-            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
+            align-items: center;
+            gap: 3px;
         }
-        .top-padding { height: var(--screen-padding, 50px); width: 100%; flex-shrink: 0; }
 
-        /* Нижнее меню */
-        .bottom-tab-bar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(30,30,40,0.95);
-            backdrop-filter: blur(20px);
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            padding: 10px 16px 25px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            z-index: 100;
+        /* Минимальные рамки для изображений - как в Telegram */
+        .msg-image-wrap { 
+            max-width: 280px; 
+            width: auto; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            display: inline-block; 
+            border: none !important; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; 
+            background: transparent !important;
+            padding: 0 !important;
         }
-        .tab-item {
-            display: flex;
-            flex-direction: column;
+        .msg-image-wrap img { 
+            max-width: 100%; 
+            height: auto; 
+            max-height: 340px; 
+            display: block; 
+            object-fit: cover; 
+            border-radius: 12px; 
+        }
+
+        .msg-emoji-only {
+            font-size: 52px;
+            line-height: 1.2;
+            padding: 4px 8px;
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            user-select: none;
+            display: inline-block;
+        }
+
+        .chat-input-bar { 
+            display: flex; 
+            gap: 12px; 
+            padding: 12px 16px 18px; 
+            background: transparent !important;
+            border-top: none !important;
+            padding-bottom: calc(15px + var(--safe-bottom)); 
+            border-radius: 0 !important; 
             align-items: center;
-            gap: 4px;
+        }
+        .input-capsule {
+            flex: 1; display: flex; align-items: center;
+            background: var(--card); border-radius: 26px; padding: 8px 16px;
+            border: 1px solid var(--border); backdrop-filter: blur(24px);
+            transition: border-color 0.3s var(--spring);
+        }
+        .input-capsule:focus-within { border-color: rgba(255,255,255,0.3); }
+        .input-capsule input {
+            flex: 1;
             background: none;
             border: none;
-            color: rgba(255,255,255,0.5);
-            cursor: pointer;
-            padding: 8px 16px;
-            border-radius: 30px;
+            outline: none;
+            color: var(--text);
+            padding: 10px 6px;
+            font-size: 15px;
+            min-height: 44px;
         }
-        .tab-item.active { color: #667eea; background: rgba(102,126,234,0.15); }
-        .tab-item i { font-size: 22px; }
-        .tab-item span { font-size: 11px; }
-        .tab-content { flex: 1; overflow-y: auto; padding-bottom: 80px; display: none; }
-        .tab-content.active { display: block; }
+        #btnSendMsg {
+            border-radius: 22px !important; width: 52px !important; height: 52px !important;
+            display: flex !important; align-items: center; justify-content: center; padding: 0 !important;
+            background: var(--accent) !important; color: var(--bg);
+            box-shadow: 0 8px 24px rgba(255,255,255,0.1); border: 1px solid var(--border);
+            animation: sendPop 0.3s var(--bounce);
+        }
+        @keyframes sendPop { from { transform: scale(0); } to { transform: scale(1); } }
+        #btnSendMsg:hover { transform: translateY(-2px) scale(1.05); }
+        #voiceBtn { transition: transform 0.2s var(--bounce), opacity 0.2s; }
+        #voiceBtn.recording { animation: micPulse 0.8s ease-in-out infinite; color: #fff !important; }
+        @keyframes micPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.7; } }
+        .message { animation: msgAppear 0.35s var(--spring) backwards; }
+        @keyframes msgAppear { from { opacity: 0; transform: translateY(12px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
-        .section-title { color: rgba(255,255,255,0.5); font-size: 13px; margin: 16px 16px 8px; }
-        .search-box { margin: 12px 16px; padding: 12px 18px; background: rgba(255,255,255,0.08); backdrop-filter: blur(20px); border-radius: 30px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,0.1); }
-        .search-box input { flex: 1; background: none; border: none; color: white; font-size: 16px; outline: none; }
-        .search-box input::placeholder { color: rgba(255,255,255,0.5); }
-        .search-results { margin: 0 16px; background: rgba(0,0,0,0.7); backdrop-filter: blur(20px); border-radius: 20px; display: none; max-height: 250px; overflow-y: auto; }
-        .chats-list, .friends-list-main { padding: 4px 16px; }
-        .chat-item, .friend-item { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; }
-        .chat-avatar, .friend-avatar { width: 52px; height: 52px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; color: white; }
-        .chat-name, .friend-name { color: white; font-weight: 600; font-size: 16px; }
-        .chat-last, .friend-username { color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 4px; }
+        .context-menu {
+            position: fixed; background: var(--card); backdrop-filter: blur(35px);
+            -webkit-backdrop-filter: blur(35px); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); width: 230px; z-index: 10500; display: none; flex-direction: column;
+            padding: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            animation: menuPop 0.25s var(--spring) forwards;
+        }
+        @keyframes menuPop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .menu-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; color: var(--text); border-radius: var(--radius-md); cursor: pointer; font-size: 15px; transition: background 0.2s; }
+        .menu-item:hover { background: rgba(255,255,255,0.08); }
+        .menu-item.danger { color: #ff3b30; }
 
-        /* Окно чата */
-        .chat-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); backdrop-filter: blur(10px); display: flex; flex-direction: column; padding-top: var(--screen-padding, 50px); z-index: 200; }
-        .chat-top { display: flex; align-items: center; padding: 10px 16px; gap: 12px; background: rgba(30,30,40,0.5); backdrop-filter: blur(30px); margin: 0 12px; border-radius: 30px; }
-        .back-btn, .call-btn, .chat-menu-btn { background: rgba(255,255,255,0.15); border: none; width: 40px; height: 40px; border-radius: 20px; color: white; cursor: pointer; font-size: 18px; }
-        .chat-title { flex: 1; color: white; font-size: 17px; font-weight: 600; }
-        .messages-area { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; padding-bottom: 80px; }
-        .message { display: flex; margin-bottom: 8px; }
-        .message.my-message { justify-content: flex-end; }
-        .message-bubble { max-width: 75%; padding: 10px 16px; border-radius: 20px; background: rgba(255,255,255,0.1); color: white; font-size: 16px; }
-        .my-message .message-bubble { background: linear-gradient(135deg, #667eea, #764ba2); }
+        /* ИСПРАВЛЕННЫЙ ИНТЕРФЕЙС ЗВОНКА (НЕПРОЗРАЧНЫЙ СТРОГИЙ ЭКРАН) */
+        #callOverlay { 
+            position: fixed; 
+            inset: 0; 
+            background: #000000 !important; 
+            z-index: 11000; 
+            display: none; 
+            flex-direction: column; 
+            padding: calc(30px + var(--safe-top)) 20px calc(30px + var(--safe-bottom)); 
+            align-items: center; 
+            justify-content: space-between; 
+            border: none !important;
+            border-radius: 0 !important;
+        }
+        .video-box { flex: 1; position: relative; border-radius: var(--radius-lg); overflow: hidden; background: #0c0c0e; margin-bottom: 20px; width: 100%; }
+        #remoteVideo { width: 100%; height: 100%; object-fit: cover; }
+        #localVideo { position: absolute; bottom: 20px; right: 20px; width: 100px; aspect-ratio: 3/4; object-fit: cover; border-radius: var(--radius-md); border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        
+        .call-user-info { text-align: center; margin-top: 40px; }
+        .call-user-info h2 { font-size: 28px; font-weight: bold; margin-top: 15px; }
+        
+        .incoming-call-box { display: flex; gap: 30px; margin-bottom: 50px; }
+        
+        .call-btn { width: 75px; height: 75px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; transition: transform 0.15s, box-shadow 0.2s; }
+        .call-btn:active { transform: scale(0.9); }
+        .call-btn.accept { background: #ffffff; color: #000000; box-shadow: 0 0 30px rgba(255,255,255,0.4); }
+        .call-btn.decline { background: #2c2c2e; color: #ffffff; }
+        
+        .circle-btn { width: 55px; height: 55px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; color: #fff; transition: background 0.2s, transform 0.15s; }
+        .circle-btn:active { transform: scale(0.9); }
 
-        /* Строка ввода */
-        .input-container { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(30px); border-top: 1px solid rgba(255,255,255,0.1); padding: 10px 16px; z-index: 100; }
-        .input-row { display: flex; align-items: center; gap: 8px; }
-        .message-input-wrapper { flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 25px; padding: 10px 16px; }
-        .message-input-wrapper textarea { width: 100%; background: none; border: none; color: white; font-size: 16px; font-family: inherit; resize: none; outline: none; max-height: 100px; padding: 0; }
-        .action-buttons { display: flex; gap: 8px; }
-        .action-btn { width: 44px; height: 44px; background: rgba(255,255,255,0.15); border: none; border-radius: 50%; color: white; cursor: pointer; font-size: 18px; }
-        .send-btn { background: linear-gradient(135deg, #667eea, #764ba2); }
-        .dynamic-island { position: fixed; top: var(--island-top, 55px); left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); backdrop-filter: blur(25px); padding: 10px 24px; border-radius: 40px; color: white; font-size: 14px; z-index: 2000; white-space: nowrap; animation: fadeInOut 2s forwards; }
-        @keyframes fadeInOut { 0% { opacity: 0; transform: translateX(-50%) scale(0.9); } 10% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+        .dynamic-island { position: fixed; top: calc(15px + var(--safe-top)); left: 50%; transform: translate3d(-50%, 0, 0); background: rgba(255,255,255,0.95); border: 1px solid var(--border); padding: 12px 24px; border-radius: var(--radius-lg); z-index: 12000; color: #000; font-size: 14px; text-align: center; pointer-events: none; animation: islandIn 0.4s var(--bounce); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+        @keyframes islandIn { from { opacity: 0; transform: translate3d(-50%, -20px, 0) scale(0.8); } to { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); } }
+        body.light .dynamic-island { background: rgba(0,0,0,0.9); color: #fff; }
 
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-        .modal-card { background: rgba(30,30,40,0.95); backdrop-filter: blur(30px); border-radius: 28px; width: 90%; max-width: 340px; max-height: 80%; overflow: auto; border: 1px solid rgba(255,255,255,0.1); }
-        .modal-header { display: flex; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.1); color: white; }
-        .close-btn { background: none; border: none; font-size: 28px; color: white; cursor: pointer; }
-        .setting-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; color: white; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .logout-btn { width: 100%; padding: 14px; background: #e74c3c; border: none; border-radius: 30px; color: white; cursor: pointer; margin-top: 12px; }
-        .avatar-wrapper { position: relative; width: 64px; height: 64px; }
-        .user-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid #667eea; }
-        .change-avatar-btn { position: absolute; bottom: -2px; right: -2px; background: #667eea; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 12px; cursor: pointer; color: white; }
-        .friends-list { padding: 8px; max-height: 350px; overflow-y: auto; }
-        .small-btn { padding: 6px 12px; background: #667eea; border: none; border-radius: 20px; color: white; cursor: pointer; font-size: 12px; }
-        .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.2); border-radius: 34px; transition: 0.3s; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: 0.3s; }
-        input:checked + .slider { background-color: #667eea; }
-        .modal-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .tab-btn { flex: 1; padding: 12px; background: none; border: none; color: white; cursor: pointer; opacity: 0.6; }
-        .tab-btn.active { opacity: 1; border-bottom: 2px solid #667eea; }
+        .incoming-call-banner {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 12500;
+            display: none; align-items: center; justify-content: space-between; gap: 12px;
+            padding: calc(12px + var(--safe-top)) 16px 12px;
+            background: rgba(20, 20, 22, 0.96); backdrop-filter: blur(30px);
+            border-bottom: 1px solid var(--border);
+            animation: bannerSlideDown 0.35s var(--spring);
+        }
+        .incoming-call-banner.active { display: flex; }
+        @keyframes bannerSlideDown { from { opacity: 0; transform: translateY(-100%); } to { opacity: 1; transform: translateY(0); } }
+        .incoming-call-info { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+        .incoming-call-info h4 { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .incoming-call-info small { color: var(--text-secondary); font-size: 12px; }
+        .incoming-call-actions { display: flex; gap: 10px; flex-shrink: 0; }
+        .incoming-call-actions .call-btn { width: 48px; height: 48px; font-size: 18px; }
+
+        .message-bubble.clickable { cursor: pointer; }
+        .message-bubble.clickable:active { transform: scale(0.98); }
+
+        #circleRecordBtn { font-size: 22px; cursor: pointer; color: var(--accent); margin-left: 8px; transition: transform 0.2s, color 0.2s; }
+        #circleRecordBtn:active { transform: scale(0.9); }
+        .message-bubble.circle-bubble { background: transparent !important; border: none !important; box-shadow: none !important; padding: 4px; max-width: 240px; }
+        .message.my-message .message-bubble.circle-bubble { background: transparent !important; }
+
+        .circle-video-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .circle-video-tap { position: relative; width: 200px; height: 200px; cursor: pointer; }
+        .circle-video-el {
+            width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+            background: #111; border: 2px solid rgba(255,255,255,0.15);
+        }
+        .circle-playback-ring {
+            position: absolute; inset: -4px; width: calc(100% + 8px); height: calc(100% + 8px);
+            transform: rotate(-90deg); pointer-events: none; z-index: 2;
+        }
+        .ring-bg { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 3; }
+        .ring-progress { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset 0.1s linear; }
+        .circle-play-overlay {
+            position: absolute; inset: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.35); color: #fff; font-size: 36px; z-index: 3; transition: opacity 0.2s;
+            pointer-events: none;
+        }
+        .circle-video-wrap.playing .circle-play-overlay { opacity: 0; }
+        .circle-duration {
+            position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.55); padding: 2px 8px; border-radius: 10px;
+            font-size: 11px; font-weight: 700; z-index: 4; pointer-events: none;
+        }
+        .circle-controls { display: none; }
+        .circle-scrub-bar { width: 200px; padding: 4px 0; }
+        .circle-scrub-track {
+            position: relative; width: 100%; height: 4px;
+            background: rgba(255,255,255,0.15); border-radius: 2px;
+            cursor: pointer;
+        }
+        .circle-scrub-fill {
+            position: absolute; top: 0; left: 0; height: 100%;
+            background: var(--accent); border-radius: 2px;
+            transition: width 0.1s linear;
+        }
+        .circle-scrub-thumb {
+            position: absolute; top: 50%; width: 12px; height: 12px;
+            background: #fff; border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+            transition: left 0.1s linear;
+        }
+
+        #cameraPreviewModal {
+            position: fixed; inset: 0; z-index: 13000; display: none;
+            align-items: center; justify-content: center; background: rgba(0,0,0,0.92);
+            backdrop-filter: blur(20px); padding: 20px;
+        }
+        .circle-record-inner { display: flex; flex-direction: column; align-items: center; gap: 24px; width: 100%; max-width: 320px; }
+        .circle-preview-wrap { position: relative; width: 240px; height: 240px; }
+        #cameraPreview {
+            width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+            background: #111; transform: scaleX(-1);
+        }
+        #recordProgressRing { fill: none; stroke: #ff3b30; stroke-width: 4; stroke-linecap: round; }
+        .circle-record-ring { position: absolute; inset: -6px; width: calc(100% + 12px); height: calc(100% + 12px); transform: rotate(-90deg); pointer-events: none; }
+        .circle-record-ring .ring-bg { stroke-width: 4; }
+        #recordingTimer {
+            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.7); padding: 4px 12px; border-radius: 14px;
+            font-size: 14px; font-weight: 800; z-index: 5; display: none;
+        }
+        .circle-record-controls { display: flex; align-items: center; justify-content: center; gap: 28px; }
+        .record-main-btn {
+            width: 72px; height: 72px; border-radius: 50%; border: 4px solid #fff;
+            background: #ff3b30; color: #fff; font-size: 28px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.15s, box-shadow 0.2s;
+        }
+        .record-main-btn.recording { animation: recordPulse 1s ease-in-out infinite; box-shadow: 0 0 0 8px rgba(255,59,48,0.3); }
+        @keyframes recordPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+        .circle-record-btn {
+            width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border);
+            background: rgba(255,255,255,0.1); color: #fff; font-size: 18px; cursor: pointer;
+        }
+        #closeCameraModal {
+            position: absolute; top: calc(16px + var(--safe-top)); right: 20px;
+            width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border);
+            background: rgba(255,255,255,0.1); color: #fff; font-size: 20px; cursor: pointer;
+        }
+
+        #circleFullscreenOverlay {
+            position: fixed; inset: 0; z-index: 14000; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+            background: #000; padding: calc(20px + var(--safe-top)) 20px calc(20px + var(--safe-bottom));
+        }
+        #circleFullscreenOverlay.active { display: flex; }
+        .circle-fs-wrap { position: relative; width: min(85vw, 340px); height: min(85vw, 340px); }
+        #circleFullscreenVideo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; background: #111; }
+        .circle-fs-ring { position: absolute; inset: -8px; width: calc(100% + 16px); height: calc(100% + 16px); transform: rotate(-90deg); pointer-events: none; }
+        #circleFsTime {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.6); padding: 4px 14px; border-radius: 14px; font-weight: 700;
+        }
+        .circle-fs-controls { display: flex; gap: 14px; margin-top: 28px; align-items: center; }
+        .circle-fs-controls .circle-ctrl-btn { width: 48px; height: 48px; font-size: 16px; }
+        .circle-fs-controls .main-play { width: 64px; height: 64px; font-size: 22px; }
+        #closeCircleFullscreen {
+            position: absolute; top: calc(16px + var(--safe-top)); right: 20px;
+            width: 44px; height: 44px; border-radius: 50%; border: none;
+            background: rgba(255,255,255,0.15); color: #fff; font-size: 22px; cursor: pointer;
+        }
+
+        .edit-modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(20px);
+            z-index: 11600; display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        .edit-modal-overlay.active { display: flex; }
+        .premium-plan-option.selected { border-color: var(--accent) !important; background: rgba(108,92,231,0.08); }
+        .premium-plan-option.selected > div:nth-child(2) { border-color: var(--accent) !important; background: var(--accent) !important; }
+        .premium-plan-option.selected > div:nth-child(2)::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+        .edit-modal-card {
+            width: 100%; max-width: 340px; background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); padding: 20px;
+        }
+
+        #profileInfoModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); z-index: 11500; display: none; align-items: center; justify-content: center; }
+        .profile-info-card { width: 90%; max-width: 380px; background: var(--card); border-radius: 16px; padding: 24px 20px; border: 1px solid var(--border); text-align: center; max-height: 85vh; overflow-y: auto; }
+        .profile-info-card { width: 90%; max-width: 350px; background: var(--card); border-radius: var(--radius-lg); padding: 30px 20px; border: 1px solid var(--border); text-align: center; }
+
+        .switch-container { display: flex; justify-content: space-between; align-items: center; background: var(--card); padding: 15px 20px; border-radius: var(--radius-md); border: 1px solid var(--border); margin: 0 20px 12px; }
+        .ios-switch { position: relative; display: inline-block; width: 51px; height: 31px; }
+        .ios-switch input { opacity: 0; width: 0; height: 0; }
+        .switch-slider { position: absolute; cursor: pointer; inset: 0; background-color: #3a3a3c; border-radius: 34px; transition: 0.3s; }
+        .switch-slider:before { position: absolute; content: ""; height: 27px; width: 27px; left: 2px; bottom: 2px; background-color: white; border-radius: 50%; transition: 0.3s; }
+        input:checked + .switch-slider { background-color: var(--accent); }
+        input:checked + .switch-slider:before { transform: translateX(20px); }
+
+        .hidden { display: none !important; }
+
+        /* ===== ANIMATIONS ===== */
+        @keyframes ripple { 0% { transform: scale(0); opacity: 0.6; } 100% { transform: scale(4); opacity: 0; } }
+        @keyframes bounce { 0%,100% { transform: scale(1); } 50% { transform: scale(0.92); } }
+        @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes slideUp { 0% { transform: translateY(20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        @keyframes slideDown { 0% { transform: translateY(-20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
+        @keyframes pulseGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(108,92,231,0.4); } 50% { box-shadow: 0 0 0 12px rgba(108,92,231,0); } }
+        @keyframes shakeX { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-6px); } 40%,80% { transform: translateX(6px); } }
+        @keyframes wiggle { 0%,100% { transform: rotate(0deg); } 25% { transform: rotate(-3deg); } 75% { transform: rotate(3deg); } }
+        @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        @keyframes scaleTap { 0% { transform: scale(1); } 50% { transform: scale(0.95); } 100% { transform: scale(1); } }
+        @keyframes glowPulse { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.3); } }
+
+        .anim-ripple { position: relative; overflow: hidden; }
+        .anim-ripple::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%); transform: scale(0); opacity: 0; pointer-events: none; }
+        .anim-ripple:active::after { animation: ripple 0.5s ease-out; }
+
+        .anim-bounce:active { animation: bounce 0.3s ease; }
+        .anim-pop { animation: popIn 0.3s ease; }
+        .anim-slide-up { animation: slideUp 0.4s ease; }
+        .anim-slide-down { animation: slideDown 0.4s ease; }
+        .anim-fade { animation: fadeIn 0.3s ease; }
+        .anim-pulse { animation: pulseGlow 2s infinite; }
+        .anim-shake:active { animation: shakeX 0.4s ease; }
+        .anim-wiggle:active { animation: wiggle 0.3s ease; }
+        .anim-float { animation: float 3s ease-in-out infinite; }
+        .anim-tap:active { animation: scaleTap 0.2s ease; }
+        .anim-glow:active { animation: glowPulse 0.5s ease; }
+
+        .chat-item { transition: transform 0.2s, background 0.2s; }
+        .chat-item:active { transform: scale(0.98); background: rgba(255,255,255,0.03); }
+        .message-bubble { transition: transform 0.15s ease, opacity 0.15s; }
+        .message-bubble:active { transform: scale(0.97); }
+        .search-item { transition: transform 0.2s, background 0.2s; }
+        .search-item:active { transform: scale(0.98); background: rgba(255,255,255,0.05); }
+        .switch-container { transition: transform 0.15s; }
+        .switch-container:active { transform: scale(0.97); }
+        .premium-plan-option { transition: transform 0.2s, border-color 0.2s; }
+        .premium-plan-option:active { transform: scale(0.98); }
+        .circle-ctrl-btn:active { transform: scale(0.88); }
+        .msg-translate-btn:active { transform: scale(0.9); opacity: 1; }
+        .panel-nav i:active { transform: translateX(-6px); transition: transform 0.15s; }
+        .tab-btn:active { transform: scale(0.88); }
+        .admin-ocr-receipt:active, .admin-approve-receipt:active, .admin-reject-receipt:active { transform: scale(0.95); }
+
+        /* Chat item hover/active animations */
+        .chat-item { cursor: pointer; }
+        .chat-item::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(255,255,255,0.08), transparent 60%); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        .chat-item:hover::before { opacity: 1; }
+
+        /* Loading spinner */
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .fa-spin { animation: spin 1s linear infinite; }
+
+        /* Shimmer loading effect */
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        .shimmer { background: linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.06) 50%, transparent 70%); background-size: 200% 100%; animation: shimmer 2s infinite; }
+
+        /* Settings profile pulse */
+        #mySettingsAvatar { animation: avatarGlow 3s ease-in-out infinite alternate; }
+        @keyframes avatarGlow { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.1); } 100% { box-shadow: 0 0 30px 5px rgba(255,255,255,0.08); } }
+
+        /* Scrollbar monochrome */
         ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); }
-        ::-webkit-scrollbar-thumb { background: #667eea; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        body.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); }
     </style>
 </head>
-<body>
-    <div id="welcomeScreen" class="swipe-screen welcome-screen">
-        <div class="welcome-logo"><i class="fas fa-bolt"></i></div>
-        <h1 class="welcome-title">SPARK</h1>
-        <p class="welcome-subtitle">Мгновенные сообщения<br>и видеозвонки</p>
-        <div class="swipe-indicator"><i class="fas fa-chevron-right"></i><p>Листай вправо →</p></div>
-    </div>
+<body class="dark">
 
-    <div id="featuresScreen" class="swipe-screen features-screen hidden">
-        <div class="beta-text">BETA</div>
-        <div class="features-grid">
-            <div class="feature-item"><i class="fas fa-comment-dots"></i><span>Мгновенные сообщения</span></div>
-            <div class="feature-item"><i class="fas fa-video"></i><span>Видеозвонки HD</span></div>
-            <div class="feature-item"><i class="fas fa-lock"></i><span>Безопасное шифрование</span></div>
-            <div class="feature-item"><i class="fas fa-cloud-upload-alt"></i><span>Облачное хранилище</span></div>
+    <div class="glass-bg-glow"></div>
+
+    <!-- SPLASH -->
+    <div id="splash" onclick="this.style.display='none'">
+        <div class="splash-content">
+            <div id="welcomeTitle">SPARK</div>
+            <i class="fas fa-bolt" id="splashBolt"></i>
         </div>
-        <button id="startChatBtn" class="start-chat-btn">✨ Начать общение</button>
+        <div id="swipeHint">НАЖМИТЕ ДЛЯ ВХОДА</div>
     </div>
 
-    <div id="authChoiceScreen" class="swipe-screen auth-screen hidden">
-        <div class="auth-card"><i class="fas fa-bolt"></i><h2>SPARK</h2><p>Введите ваш @username</p><input type="text" id="choiceUsername" placeholder="@username" class="input"><button id="continueBtn" class="btn primary">Продолжить →</button><div id="choiceError" class="error"></div></div>
-    </div>
-
-    <div id="passwordScreen" class="swipe-screen password-screen hidden">
-        <div class="auth-card"><i class="fas fa-lock"></i><h2>Введите пароль</h2><input type="password" id="passwordInput" placeholder="Пароль" class="input"><button id="finishLoginBtn" class="btn primary">Завершить →</button><button id="backToAuthBtn" class="btn secondary">← Назад</button><div id="passwordError" class="error"></div></div>
-    </div>
-
-    <div id="registerScreen" class="swipe-screen auth-screen hidden">
-        <div class="auth-card"><i class="fas fa-user-plus"></i><h2>Регистрация</h2><input type="text" id="regUsername" placeholder="@username" class="input"><input type="text" id="regName" placeholder="Имя" class="input"><input type="tel" id="regPhone" placeholder="Телефон" class="input"><input type="password" id="regPass" placeholder="Пароль" class="input"><input type="password" id="regConfirm" placeholder="Повторите" class="input"><button id="registerFinishBtn" class="btn primary">Завершить →</button><button id="backToAuthFromRegBtn" class="btn secondary">← Назад</button><div id="regError" class="error"></div></div>
-    </div>
-
-    <div id="messengerScreen" class="swipe-screen messenger-screen hidden" style="display: none;">
-        <div class="top-padding"></div>
-        
-        <!-- Вкладка ЧАТЫ -->
-        <div id="chatsTab" class="tab-content active">
-            <div class="section-title">ЧАТЫ</div>
-            <div class="search-box"><i class="fas fa-search"></i><input type="text" id="searchInput" placeholder="Поиск пользователей..."></div>
-            <div id="searchResults" class="search-results"></div>
-            <div id="chatsList" class="chats-list"></div>
-        </div>
-
-        <!-- Вкладка ДРУЗЬЯ -->
-        <div id="friendsTab" class="tab-content">
-            <div class="section-title">ДРУЗЬЯ</div>
-            <div style="display: flex; gap: 10px; margin: 12px 16px;">
-                <button id="friendsSubTab" class="small-btn" style="flex:1; background:#667eea;">👥 Мои друзья</button>
-                <button id="requestsSubTab" class="small-btn" style="flex:1; background:rgba(255,255,255,0.2);">📨 Запросы <span id="requestsCountBadge" style="background:#ff4757;border-radius:10px;padding:0px 6px;margin-left:5px;">0</span></button>
+    <!-- ВХОД (Юзернейм) -->
+    <div id="authStep1" class="screen">
+        <div class="auth-card">
+            <h1 style="letter-spacing: 8px; margin-bottom: 40px; font-weight: 900;">SPARK</h1>
+            <input type="text" id="userInput" class="input" placeholder="@username" autocomplete="off" spellcheck="false">
+            <button id="btnStep1" class="btn">ПРОДОЛЖИТЬ</button>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button class="btn" style="flex:1;background:transparent;color:var(--text-secondary);border:1px solid var(--border);font-size:13px;padding:14px;" id="btnAuthFaceId"><i class="fas fa-face-smile"></i> Face ID</button>
+                <button class="btn" style="flex:1;background:transparent;color:var(--text-secondary);border:1px solid var(--border);font-size:13px;padding:14px;" id="btnAuthQr"><i class="fas fa-qrcode"></i> QR-код</button>
             </div>
-            <div id="myFriendsListContainer" class="friends-list-main"></div>
-            <div id="requestsListContainer" class="friends-list-main" style="display:none;"></div>
         </div>
+    </div>
 
-        <!-- Вкладка НАСТРОЙКИ -->
-        <div id="settingsTab" class="tab-content">
-            <div style="padding: 16px;">
-                <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 16px;">
-                    <div class="avatar-wrapper"><img id="userAvatar" class="user-avatar" src="https://ui-avatars.com/api/?name=U&background=667eea&color=fff"><button id="changeAvatarBtn" class="change-avatar-btn"><i class="fas fa-camera"></i></button></div>
-                    <div><div id="userName" style="color:white;font-weight:600;"></div><div id="userUsername" style="color:rgba(255,255,255,0.6);font-size:14px;"></div></div>
+    <!-- МОДАЛКА Face ID (для входа) -->
+    <div class="edit-modal-overlay" id="faceIdModal">
+        <div class="edit-modal-card" style="text-align:center;max-width:340px;">
+            <h3 style="margin-bottom:14px;"><i class="fas fa-face-smile"></i> Face ID</h3>
+            <div id="faceIdCamera" style="width:200px;height:200px;border-radius:50%;background:#111;margin:0 auto 16px;overflow:hidden;display:flex;align-items:center;justify-content:center;border:3px solid var(--border);">
+                <video id="faceIdVideo" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;border-radius:50%;transform:scaleX(-1);"></video>
+            </div>
+            <p id="faceIdMessage" style="font-size:14px;color:var(--text-secondary);margin-bottom:16px;">Наведите камеру на лицо</p>
+            <div style="display:flex;gap:10px;">
+                <button class="btn" style="background:var(--card);color:var(--text);flex:1;" id="btnCancelFaceId">Отмена</button>
+                <button class="btn" style="flex:1;" id="btnScanFaceId">Сканировать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА QR ВХОДА (для входа) -->
+    <div class="edit-modal-overlay" id="qrLoginModal">
+        <div class="edit-modal-card" style="text-align:center;max-width:340px;">
+            <h3 style="margin-bottom:14px;"><i class="fas fa-qrcode"></i> Вход по QR-коду</h3>
+            <div id="qrLoginCamera" style="width:240px;height:240px;border-radius:16px;background:#111;margin:0 auto 16px;overflow:hidden;position:relative;border:3px solid var(--border);">
+                <video id="qrLoginVideo" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
+                <div style="position:absolute;inset:0;border:2px solid var(--accent);border-radius:16px;pointer-events:none;"></div>
+            </div>
+            <p id="qrLoginMessage" style="font-size:14px;color:var(--text-secondary);margin-bottom:16px;">Наведите камеру на QR-код</p>
+            <button class="btn" style="background:var(--card);color:var(--text);" id="btnCloseQrLogin">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- ВХОД (Пароль) -->
+    <div id="authStep2" class="screen hidden">
+        <div class="auth-card">
+            <h2 id="helloHeader" style="margin-bottom: 25px;">Привет!</h2>
+            <input type="password" id="passInput" class="input" placeholder="Введите пароль">
+            <button id="btnStep2" class="btn">ВОЙТИ</button>
+        </div>
+    </div>
+
+    <!-- РЕГИСТРАЦИЯ -->
+    <div id="authRegister" class="screen hidden">
+        <div class="auth-card">
+            <h2 style="margin-bottom: 20px;">Новый профиль</h2>
+            <input type="text" id="regName" class="input" placeholder="Ваше имя">
+            <input type="password" id="regPass" class="input" placeholder="Придумайте пароль">
+            <input type="date" id="regBirth" class="input">
+            <textarea id="regBio" class="input" placeholder="О себе..." rows="2"></textarea>
+            <button id="btnRegister" class="btn">ЗАРЕГИСТРИРОВАТЬСЯ</button>
+        </div>
+    </div>
+
+    <!-- HAMBURGER MENU DRAWER -->
+    <div id="hamburgerOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10900;" onclick="closeHamburger()"></div>
+    <div id="hamburgerDrawer" style="display:none;position:fixed;top:0;left:0;width:280px;height:100%;background:var(--bg);z-index:10950;box-shadow:4px 0 20px rgba(0,0,0,0.4);overflow-y:auto;transform:translateX(-100%);transition:transform 0.3s ease;">
+        <div style="padding:24px 20px 16px;border-bottom:1px solid var(--border);">
+            <div class="avatar" id="drawerAvatar" style="width:56px;height:56px;font-size:22px;margin-bottom:12px;"></div>
+            <div id="drawerName" style="font-size:16px;font-weight:700;"></div>
+            <div id="drawerUsername" style="font-size:13px;color:var(--text-secondary);"></div>
+        </div>
+        <div style="padding:8px 0;">
+            <div class="drawer-item" data-action="profile"><i class="fas fa-user" style="width:24px;"></i><span>Мой профиль</span></div>
+            <div class="drawer-item pc-hide" data-action="wallet"><i class="fas fa-wallet" style="width:24px;"></i><span>Кошелёк</span></div>
+            <div class="drawer-item" data-action="create-group"><i class="fas fa-users" style="width:24px;"></i><span>Создать группу</span></div>
+            <div class="drawer-item" data-action="create-channel"><i class="fas fa-broadcast-tower" style="width:24px;"></i><span>Создать канал</span></div>
+            <div class="drawer-item pc-hide" data-action="contacts"><i class="fas fa-address-book" style="width:24px;"></i><span>Контакты</span></div>
+            <div class="drawer-item pc-hide" data-action="calls"><i class="fas fa-phone-alt" style="width:24px;"></i><span>Звонки</span></div>
+            <div class="drawer-item pc-hide" data-action="favorites"><i class="fas fa-bookmark" style="width:24px;"></i><span>Избранное</span></div>
+            <div class="drawer-item" data-action="settings"><i class="fas fa-cog" style="width:24px;"></i><span>Настройки</span></div>
+            <div class="drawer-item" data-action="nightmode" style="justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:14px;"><i class="fas fa-moon" style="width:24px;"></i><span>Ночной режим</span></div>
+                <label class="ios-switch" style="margin:0;"><input type="checkbox" id="drawerNightToggle"><span class="switch-slider"></span></label>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP -->
+    <div id="app">
+        <!-- ТАБ: ЧАТЫ -->
+        <div id="pane-chats" class="tab-pane active">
+            <div class="search-area">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <i class="fas fa-bars" id="btnHamburger" style="font-size:20px;cursor:pointer;color:var(--text);padding:8px;"></i>
+                    <div class="search-box glass-panel" style="flex:1;">
+                        <i class="fas fa-search" style="color:var(--text-secondary)"></i>
+                        <input type="text" id="searchBar" placeholder="Поиск по @username...">
+                    </div>
+                    <button class="small-btn" id="btnOpenCreateChannel" style="width:44px;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:18px;padding:0;">＋</button>
                 </div>
-                <div class="setting-item"><span>🎨 Тема</span><select id="themeSelect"><option value="dark">🌙 Тёмная</option><option value="purple">🟣 Фиолетовая</option><option value="blue">💙 Синяя</option><option value="pink">💗 Розовая</option></select></div>
-                <div class="setting-item"><span>🔔 Уведомления</span><label class="switch"><input type="checkbox" id="notifToggle"><span class="slider"></span></label></div>
-                <div class="setting-item"><span>⭐ Подписки</span><button id="subscriptionsBtn" class="small-btn">Управлять</button></div>
-                <div class="setting-item"><span>📏 Отступ сверху</span><input type="range" id="paddingSlider" min="20" max="120" step="5" value="50"><span id="paddingValue">50px</span></div>
-                <div class="setting-item"><span>📱 Отступ уведомлений</span><input type="range" id="islandPaddingSlider" min="20" max="120" step="5" value="55"><span id="islandPaddingValue">55px</span></div>
-                <div class="setting-item"><span>🔐 Сменить пароль</span><button id="changePasswordBtn" class="small-btn">Изменить</button></div>
-                <button id="logoutSettingsBtn" class="logout-btn">Выйти</button>
+                <div class="search-results" id="searchResults"></div>
+            </div>
+            <div class="list-container" id="chatList"></div>
+        </div>
+
+        <!-- ТАБ: НАСТРОЙКИ -->
+        <div id="pane-settings" class="tab-pane">
+            <div class="search-area" id="settingsSearchArea">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <i class="fas fa-bars" id="btnHamburger2" style="font-size:20px;cursor:pointer;color:var(--text);padding:8px;"></i>
+                    <div style="flex:1;font-size:18px;font-weight:700;color:var(--text);padding:4px 0;">Настройки</div>
+                </div>
+            </div>
+            <div style="padding: 20px 20px 20px; text-align: center;">
+                <div class="avatar" id="mySettingsAvatar" style="width:100px; height:100px; margin: 0 auto 12px; font-size:38px;"></div>
+                <h2 id="myNameDisplay" style="font-size:20px; font-weight:700;">Профиль</h2>
+                <p id="myUserDisplay" style="color:var(--text-secondary); font-size:14px;"></p> 
+            </div>
+            <div style="padding:0 0 20px;">
+                <div class="settings-list">
+                    <div class="settings-item" id="btn-profile-edit">
+                        <i class="fas fa-user" style="width:24px;color:var(--accent);"></i>
+                        <span>Мой профиль</span>
+                        <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--text-secondary);font-size:12px;"></i>
+                    </div>
+                    <div class="settings-item" id="btn-theme-edit">
+                        <i class="fas fa-palette" style="width:24px;color:var(--accent);"></i>
+                        <span>Оформление</span>
+                        <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--text-secondary);font-size:12px;"></i>
+                    </div>
+                    <div class="settings-item" id="btn-lang-edit">
+                        <i class="fas fa-globe" style="width:24px;color:var(--accent);"></i>
+                        <span>Язык</span>
+                        <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--text-secondary);font-size:12px;"></i>
+                    </div>
+                    <div class="settings-item">
+                        <i class="fas fa-bell" style="width:24px;color:var(--accent);"></i>
+                        <span>Уведомления</span>
+                        <label class="ios-switch" style="margin-left:auto;">
+                            <input type="checkbox" id="notificationToggle" checked>
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-item" id="btn-security-edit">
+                        <i class="fas fa-shield-alt" style="width:24px;color:var(--accent);"></i>
+                        <span>Безопасность</span>
+                        <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--text-secondary);font-size:12px;"></i>
+                    </div>
+                    <div class="settings-item" id="btn-storage-edit">
+                        <i class="fas fa-database" style="width:24px;color:var(--accent);"></i>
+                        <span>Хранилище</span>
+                        <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--text-secondary);font-size:12px;"></i>
+                    </div>
+                    <div class="settings-item" id="btn-devices-edit">
+                        <i class="fas fa-mobile-alt" style="width:24px;color:var(--accent);"></i>
+                        <span>Устройства</span>
+                        <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--text-secondary);font-size:12px;"></i>
+                    </div>
+                </div>
+                <div class="settings-list" style="margin-top:12px;">
+                    <div class="settings-item" id="btn-premium-edit" style="color:var(--accent);">
+                        <i class="fas fa-bolt" style="width:24px;color:var(--accent);"></i>
+                        <span style="font-weight:600;">SPARK Premium</span>
+                        <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--text-secondary);font-size:12px;"></i>
+                    </div>
+                    <div class="settings-item" id="btn-custom-edit" style="color:var(--accent);">
+                        <i class="fas fa-wand-magic-sparkles" style="width:24px;color:var(--accent);"></i>
+                        <span style="font-weight:600;">Кастом (Premium)</span>
+                        <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--text-secondary);font-size:12px;"></i>
+                    </div>
+                    <div class="settings-item" id="btn-admin-premium-edit" style="color:#e17055;display:none;">
+                        <i class="fas fa-crown" style="width:24px;color:#e17055;"></i>
+                        <span>Управление Premium</span>
+                        <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--text-secondary);font-size:12px;"></i>
+                    </div>
+                </div>
+                <div style="padding:20px;">
+                    <button class="btn" style="background:#ff3b30; color:#fff; width:100%; border-radius:12px;" id="btn-logout"><i class="fas fa-sign-out-alt"></i> Выйти из аккаунта</button>
+                </div>
             </div>
         </div>
 
-        <div class="bottom-tab-bar">
-            <button class="tab-item active" data-tab="chats"><i class="fas fa-comment-dots"></i><span>Чаты</span></button>
-            <button class="tab-item" data-tab="friends"><i class="fas fa-user-friends"></i><span>Друзья</span></button>
-            <button class="tab-item" data-tab="settings"><i class="fas fa-cog"></i><span>Настройки</span></button>
+        <!-- BOTTOM NAV BAR (GLASS PILL) -->
+        <div class="footer">
+            <button class="tab-btn active" id="tab-chats-btn"><i class="fas fa-comment-alt"></i>Чаты</button>
+            <button class="tab-btn" id="tab-settings-btn"><i class="fas fa-cog"></i>Настройки</button>
         </div>
     </div>
 
-    <div id="chatView" class="chat-view" style="display:none">
-        <div class="chat-top"><button id="backBtn" class="back-btn"><i class="fas fa-arrow-left"></i></button><div class="chat-title" id="chatTitle"></div><div style="display: flex; gap: 6px;"><button id="audioCallBtn" class="call-btn"><i class="fas fa-phone"></i></button><button id="videoCallBtn" class="call-btn"><i class="fas fa-video"></i></button><button id="chatMenuBtn" class="chat-menu-btn"><i class="fas fa-ellipsis-v"></i></button></div></div>
-        <div id="messagesArea" class="messages-area"></div>
-        <div class="input-container"><div class="input-row"><div class="message-input-wrapper"><textarea id="messageInput" placeholder="Сообщение..." rows="1"></textarea></div><div class="action-buttons"><button id="voiceRecordBtn" class="action-btn"><i class="fas fa-microphone"></i></button><button id="circleRecordBtn" class="action-btn"><i class="fas fa-video"></i></button><button id="fileBtn" class="action-btn"><i class="fas fa-image"></i></button><button id="sendBtn" class="action-btn send-btn"><i class="fas fa-paper-plane"></i></button></div></div></div>
-        <input type="file" id="fileInput" style="display: none">
+    <!-- PANEL: LANGUAGE -->
+    <div id="panelLanguage" class="full-pane">
+        <div class="panel-nav"><i class="fas fa-chevron-left" id="closeLangPanelBtn"></i>Язык / Language</div>
+        <p style="margin-bottom:20px; opacity:0.6;"><i class="fas fa-globe"></i> Выберите язык приложения:</p>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            <button class="btn" style="background:var(--card); color:var(--text);" id="btn-lang-ru">Русский</button>
+            <button class="btn" style="background:var(--card); color:var(--text);" id="btn-lang-en">English</button>
+            <button class="btn" style="background:var(--card); color:var(--text);" id="btn-lang-uk">Українська</button>
+            <button class="btn" style="background:var(--card); color:var(--text);" id="btn-lang-kk">Қазақша</button>
+        </div>
     </div>
 
-    <div id="passwordModal" class="modal" style="display:none"><div class="modal-card"><div class="modal-header"><h3>Смена пароля</h3><button class="closePasswordModal close-btn">×</button></div><div class="modal-body"><input type="password" id="oldPassword" placeholder="Старый пароль" class="input"><input type="password" id="newPassword" placeholder="Новый пароль" class="input" style="margin-top:12px"><input type="password" id="confirmPassword" placeholder="Подтвердите" class="input" style="margin-top:12px"><button id="savePasswordBtn" class="btn primary" style="margin-top:16px">Сохранить</button></div></div></div>
-    <div id="subscribeModal" class="modal" style="display:none"><div class="modal-card"><div class="modal-header"><h3>⭐ Подписки</h3><button class="closeSubscribeModal close-btn">×</button></div><div class="modal-body"><div id="subscribersList" style="max-height:300px;overflow-y:auto;"></div><div style="margin:16px 0;border-top:1px solid rgba(255,255,255,0.1);"></div><div class="setting-item"><span>👤 Подписан на меня:</span><span id="subscribersCount">0</span></div><div class="setting-item"><span>📌 Я подписан на:</span><span id="subscriptionsCount">0</span></div></div></div></div>
-    <div id="avatarModal" class="modal" style="display:none"><div class="modal-card"><div class="modal-header"><h3>Аватарка</h3><button class="closeAvatarModal close-btn">×</button></div><div class="modal-body" style="text-align:center"><img id="avatarPreview" src="" style="width:150px;height:150px;border-radius:50%;margin-bottom:20px;"><input type="file" id="avatarFileInput" accept="image/*" style="display:none"><button id="selectAvatarBtn" class="btn primary">📷 Выбрать фото</button><div id="avatarProgress" style="display:none;height:4px;background:#667eea;width:0%;margin-top:10px;"></div></div></div></div>
-    <div id="callModal" class="modal" style="display:none"><div class="modal-card" style="max-width:350px;text-align:center"><div class="modal-header"><h3 id="callTitle">📞 Звонок</h3><button class="closeCallModal close-btn">×</button></div><div class="modal-body"><div id="callerInfo"></div><div id="callStatus" style="margin:20px 0;">⏳ Соединение...</div><div id="callControls" style="display:flex;gap:12px;justify-content:center;"><button id="answerCallBtn" class="btn primary" style="background:#2ecc71;">Ответить</button><button id="rejectCallBtn" class="btn secondary" style="background:#e74c3c;">Отклонить</button></div><div id="activeCallControls" style="display:none;"><button id="endCallBtn" class="btn secondary" style="background:#e74c3c;">Завершить</button></div></div></div></div>
-    <div id="messageMenuModal" class="modal" style="display:none"><div class="modal-card"><div style="padding:8px;"><button id="menuEditBtn" class="menu-item" style="width:100%;padding:12px;background:none;border:none;color:white;text-align:left;cursor:pointer;">✏️ Редактировать</button><button id="menuDeleteBtn" class="menu-item" style="width:100%;padding:12px;background:none;border:none;color:white;text-align:left;cursor:pointer;">🗑️ Удалить</button></div></div></div>
-    <div id="chatMenuModal" class="modal" style="display:none"><div class="modal-card"><div style="padding:8px;"><button id="chatMenuClearHistoryBtn" class="menu-item" style="width:100%;padding:12px;background:none;border:none;color:white;text-align:left;cursor:pointer;">🗑️ Очистить историю</button><button id="chatMenuDeleteChatBtn" class="menu-item" style="width:100%;padding:12px;background:none;border:none;color:white;text-align:left;cursor:pointer;">❌ Удалить чат</button></div></div></div>
+    <!-- CHAT VIEW -->
+    <div id="chatView">
+        <div class="chat-header">
+            <div class="hdr-capsule">
+                <i class="fas fa-chevron-left hdr-back" id="btnExitChat"></i>
+            </div>
+            <div class="hdr-capsule hdr-info" id="chatHeaderInfo" style="flex:1;">
+                <h4 id="chatTargetName">Имя</h4>
+                <small id="chatTargetStatus">не в сети</small>
+                <div id="chatHeaderActions" class="hdr-actions">
+                    <button id="btnPhoneCall" class="hdr-action-btn">
+                        <i class="fas fa-phone-alt"></i> Позвонить
+                    </button>
+                    <button id="btnVideoCall" class="hdr-action-btn">
+                        <i class="fas fa-video"></i> Видеозвонок
+                    </button>
+                </div>
+            </div>
+            <div class="hdr-capsule">
+                <div class="avatar hdr-avatar" id="chatTargetAvatar"></div>
+            </div>
+        </div>
+        <div class="messages-area" id="messagesArea"></div>
+        <div class="chat-input-bar">
+            <div class="input-capsule">
+                <i class="fas fa-paperclip" id="btnPaperclip" style="font-size:20px; cursor:pointer; color:var(--text-secondary); margin-right: 8px;"></i>
+                <input type="text" id="msgInput" placeholder="Сообщение...">
+            </div>
+            <i class="fas fa-microphone" id="voiceBtn" style="font-size:22px; cursor:pointer; color:var(--accent); margin-left: 8px;"></i>
+            <i class="fas fa-dot-circle" id="circleRecordBtn" title="Кружок"></i>
+            <button id="btnSendMsg" class="btn" style="width:50px; height:44px; display:none; border-radius: 22px; margin-left: 8px; padding: 0;"><i class="fas fa-paper-plane" style="font-size: 16px;"></i></button>
+        </div>
+    </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <!-- PANEL: PROFILE -->
+    <div id="panelProfile" class="full-pane">
+        <div class="panel-nav"><i class="fas fa-chevron-left" id="closeProfilePanelBtn"></i>Мой профиль</div>
+        <div style="text-align: center; margin-bottom: 25px;">
+            <div class="avatar" style="width:130px; height:130px; margin:0 auto 15px;" id="profileAvatarPreview"></div>
+            <input type="file" id="avatarFileInput" accept="image/*" hidden>
+            <button class="btn" style="width:auto; padding:10px 25px;" id="btnChangeAvatar"><i class="fas fa-camera"></i> Сменить фото</button>
+        </div>
+        <input type="text" id="editName" class="input" placeholder="Отображаемое имя">
+        <input type="date" id="editBirth" class="input">
+        <textarea id="editBio" class="input" placeholder="О себе..." rows="3"></textarea>
+        <button class="btn" id="btnSaveProfile">Сохранить изменения</button>
+    </div>
+
+    <!-- PANEL: APPEARANCE -->
+    <div id="panelAppearance" class="full-pane">
+        <div class="panel-nav"><i class="fas fa-chevron-left" id="closeAppearancePanelBtn"></i>Оформление</div>
+        <p style="margin-bottom:15px; opacity:0.6;"><i class="fas fa-palette"></i> Выберите цвет жидкого стекла:</p>
+        <div class="theme-grid" id="themeGrid"></div>
+        
+        <p style="margin: 25px 0 10px; opacity:0.6;"><i class="fas fa-images"></i> Обои чата:</p>
+        <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px;">
+            <button class="btn" style="background:#111; color:#fff;" id="btnWallpaperGrid">Classic Grid</button>
+            <button class="btn" style="background:#000; color:#fff; border:1px solid #333;" id="btnWallpaperOled">OLED Black</button>
+            <button class="btn" style="background:#0a0a0a; color:#fff; border:1px solid #333;" id="btnWallpaperDots">Dot Pattern</button>
+            <button class="btn" style="background:#050505; color:#fff; border:1px solid #333;" id="btnWallpaperLines">Line Pattern</button>
+            <button class="btn" style="background:#0a0a14; color:#9b8ec4; border:1px solid #3a2d6b;" id="btnWallpaperSpace">Space</button>
+        </div>
+
+        <button class="btn" style="margin-top:40px; background:#ffffff; color:#000000;" id="btnThemeLight">Светлое стекло</button>
+        <button class="btn" style="margin-top:12px; background:#111111; color:#ffffff;" id="btnThemeDark">Темный OLED</button>
+    </div>
+
+    <!-- МОДАЛКА ЗАПИСИ КРУЖКА -->
+    <div id="cameraPreviewModal">
+        <button id="closeCameraModal"><i class="fas fa-times"></i></button>
+        <div class="circle-record-inner">
+            <div class="circle-preview-wrap">
+                <video id="cameraPreview" autoplay playsinline muted></video>
+                <svg class="circle-record-ring" viewBox="0 0 252 252">
+                    <circle class="ring-bg" cx="126" cy="126" r="120" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="4"/>
+                    <circle id="recordProgressRing" cx="126" cy="126" r="120" fill="none" stroke="#ff3b30" stroke-width="4" stroke-linecap="round" stroke-dasharray="754" stroke-dashoffset="754"/>
+                </svg>
+                <div id="recordingTimer">0:00</div>
+            </div>
+            <div class="circle-record-controls">
+                <button class="circle-record-btn" id="switchCameraBtnCircle" title="Сменить камеру"><i class="fas fa-sync-alt"></i></button>
+                <button class="record-main-btn" id="startRecordingBtn"><i class="fas fa-circle" style="color:#fff;"></i></button>
+                <button class="record-main-btn" id="stopRecordingBtnInner" style="display:none;background:#ff3b30;"><i class="fas fa-paper-plane" style="font-size:24px;"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- КРУЖОК НА ВЕСЬ ЭКРАН -->
+    <div id="circleFullscreenOverlay">
+        <button id="closeCircleFullscreen"><i class="fas fa-times"></i></button>
+        <div class="circle-fs-wrap">
+            <video id="circleFullscreenVideo" autoplay playsinline></video>
+            <svg class="circle-fs-ring" viewBox="0 0 252 252">
+                <circle cx="126" cy="126" r="120" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="4"/>
+                <circle id="circleFsRing" cx="126" cy="126" r="120" fill="none" stroke="#ff3b30" stroke-width="4" stroke-linecap="round" stroke-dasharray="754" stroke-dashoffset="754"/>
+            </svg>
+            <div id="circleFsTime">0:00</div>
+        </div>
+        <div class="circle-fs-controls">
+            <button type="button" class="circle-ctrl-btn" data-fs="back5"><i class="fas fa-undo"></i></button>
+            <button type="button" class="circle-ctrl-btn main-play" data-fs="toggle"><i class="fas fa-play"></i></button>
+            <button type="button" class="circle-ctrl-btn" data-fs="fwd5"><i class="fas fa-redo"></i></button>
+            <button type="button" class="circle-ctrl-btn" data-fs="stop"><i class="fas fa-stop"></i></button>
+        </div>
+    </div>
+
+    <!-- WebRTC CALL OVERLAY -->
+    <div id="callOverlay">
+        <div class="call-user-info">
+            <div class="avatar" id="callAvatarContainer" style="width:130px; height:130px; font-size:45px; margin:0 auto; border: none;"></div>
+            <h2 id="callUserNameDisplay" style="margin-top:15px; font-size:28px;">Имя Фамилия</h2>
+            <p id="callStatusText">Звонок...</p>
+        </div>
+        <div class="video-box" id="callVideoContainer" style="display:none; width:100%;">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <video id="localVideo" autoplay playsinline muted></video>
+        </div>
+        <div class="incoming-call-box" id="incomingActions" style="width:100%; display:flex; justify-content:center; gap:40px; margin-bottom:calc(30px + var(--safe-bottom));">
+            <button class="call-btn decline" id="btnDeclineCall"><i class="fas fa-phone-slash"></i></button>
+            <button class="call-btn accept" id="btnAcceptCall"><i class="fas fa-phone"></i></button>
+        </div>
+        <div class="call-controls" id="activeCallActions" style="display:none; width:100%; flex-wrap: wrap; justify-content:center; gap:10px; margin-bottom:calc(30px + var(--safe-bottom));">
+            <button class="circle-btn" id="toggleCameraBtn" style="background:rgba(255,255,255,0.1); border:1px solid var(--border);"><i class="fas fa-camera"></i></button>
+            <button class="circle-btn" id="switchCameraBtn" style="background:rgba(255,255,255,0.1); border:1px solid var(--border);"><i class="fas fa-sync"></i></button>
+            <button class="circle-btn" id="toggleMicBtn" style="background:rgba(255,255,255,0.1); border:1px solid var(--border);"><i class="fas fa-microphone"></i></button>
+            <button class="circle-btn" id="endCallBtn" style="background:#ff0d00;"><i class="fas fa-phone-slash"></i></button>
+        </div>
+    </div>
+
+    <!-- КАРТОЧКА ПОЛЬЗОВАТЕЛЯ -->
+    <div id="profileInfoModal" onclick="this.style.display='none'">
+        <div class="profile-info-card glass-panel" onclick="event.stopPropagation()" style="max-height:85vh;overflow-y:auto;">
+            <div class="avatar" id="modalTargetAvatar" style="width:100px; height:100px; margin: 0 auto 20px; font-size:40px; border:none;"></div>
+            <h2 id="modalTargetName" style="margin-bottom:6px;">Имя</h2>
+            <p id="modalTargetUser" style="color:var(--text-secondary); margin-bottom:16px;">@username</p>
+            <div id="modalCreatorBadge" style="display:none;background:linear-gradient(135deg,#fff,#ccc);color:#000;font-size:12px;font-weight:800;padding:4px 12px;border-radius:20px;margin:0 auto 10px;width:fit-content;">⚡ Создатель SPARK</div>
+            <div style="text-align:left; display:flex; flex-direction:column; gap:10px; border-top: 1px solid var(--border); padding-top:16px;">
+                <div><small style="color:var(--text-secondary)" id="label-about">О себе</small><div id="modalTargetBio" style="font-size:15px; margin-top:2px;">Информация отсутствует</div></div>
+                <div><small style="color:var(--text-secondary)" id="label-birthday">Дата рождения</small><div id="modalTargetBirth" style="font-size:15px; margin-top:2px;">Не указана</div></div>
+            </div>
+            <div id="modalAvatarHistory" style="display:none; margin-top:16px; border-top:1px solid var(--border); padding-top:16px;">
+                <small style="color:var(--text-secondary); font-weight:600;">Аватарки</small>
+                <div id="modalAvatarHistoryList" style="display:flex; gap:8px; overflow-x:auto; padding:8px 0; -webkit-overflow-scrolling:touch;"></div>
+            </div>
+            <div id="modalSharedImages" style="display:none; margin-top:16px; border-top:1px solid var(--border); padding-top:16px;">
+                <small style="color:var(--text-secondary); font-weight:600;">Общие изображения</small>
+                <div id="modalSharedImagesGrid" style="display:grid; grid-template-columns:repeat(3,1fr); gap:4px; margin-top:8px;"></div>
+            </div>
+            <div id="modalTargetStats"></div>
+        </div>
+    </div>
+
+    <!-- ВХОДЯЩИЙ ЗВОНОК СВЕРХУ -->
+    <div class="incoming-call-banner" id="incomingCallBanner">
+        <div class="incoming-call-info">
+            <div class="avatar" id="incomingCallAvatar" style="width:44px;height:44px;font-size:18px;flex-shrink:0;"></div>
+            <div style="min-width:0;">
+                <h4 id="incomingCallName">Пользователь</h4>
+                <small id="incomingCallType">Входящий звонок</small>
+            </div>
+        </div>
+        <div class="incoming-call-actions">
+            <button class="call-btn decline" id="incomingDeclineBtn"><i class="fas fa-phone-slash"></i></button>
+            <button class="call-btn accept" id="incomingAcceptBtn"><i class="fas fa-phone"></i></button>
+        </div>
+    </div>
+
+    <!-- TG КОНТЕКСТНОЕ МЕНЮ ЧАТА -->
+    <div class="context-menu" id="chatContextMenu">
+        <div class="menu-item" id="btnMenuPin"><span data-i18n="pinChat">Закрепить чат</span> <i class="fas fa-thumbtack"></i></div>
+        <div class="menu-item" id="btnMenuMute"><span data-i18n="muteChat">Без звука</span> <i class="fas fa-bell-slash"></i></div>
+        <div class="menu-item" id="btnMenuClear"><span data-i18n="clearHistory">Очистить историю</span> <i class="fas fa-eraser"></i></div>
+        <div class="menu-item danger" id="btnMenuDelete"><span data-i18n="deleteChat">Удалить чат</span> <i class="fas fa-trash-alt"></i></div>
+    </div>
+
+    <!-- КОНТЕКСТНОЕ МЕНЮ КРУЖКА -->
+    <div class="context-menu" id="circleContextMenu">
+        <div class="menu-item" id="btnCircleFullscreen"><span>На весь экран</span> <i class="fas fa-expand"></i></div>
+        <div class="menu-item danger" id="btnCircleDelete"><span>Удалить</span> <i class="fas fa-trash-alt"></i></div>
+    </div>
+
+    <!-- КОНТЕКСТНОЕ МЕНЮ СООБЩЕНИЯ -->
+    <div class="context-menu" id="messageContextMenu">
+        <div class="menu-item" id="btnMsgEdit"><span data-i18n="editMsg">Изменить</span> <i class="fas fa-pen"></i></div>
+        <div class="menu-item danger" id="btnMsgDelete"><span data-i18n="deleteMsg">Удалить</span> <i class="fas fa-trash-alt"></i></div>
+    </div>
+
+    <!-- РЕДАКТИРОВАНИЕ СООБЩЕНИЯ -->
+    <div class="edit-modal-overlay" id="editMessageModal">
+        <div class="edit-modal-card">
+            <h3 style="margin-bottom:14px;" data-i18n="editMsg">Изменить сообщение</h3>
+            <input type="text" id="editMessageInput" class="input" style="margin:0 0 14px;">
+            <div style="display:flex;gap:10px;">
+                <button class="btn" style="background:var(--card);color:var(--text);flex:1;" id="btnCancelEdit" data-i18n="cancel">Отмена</button>
+                <button class="btn" style="flex:1;" id="btnSaveEdit" data-i18n="save">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="mediaFileInput" hidden>
+
+    <!-- МОДАЛКА СОЗДАНИЯ КАНАЛА/ГРУППЫ -->
+    <div class="edit-modal-overlay" id="createChannelModal">
+        <div class="edit-modal-card" style="max-width:380px;">
+            <h3 style="margin-bottom:14px;">Новый канал/группа</h3>
+            <input type="text" id="channelNameInput" class="input" placeholder="Название" style="margin-bottom:10px;">
+            <div style="display:flex;gap:8px;margin-bottom:14px;">
+                <button class="btn" id="channelTypeChannel" style="flex:1;background:var(--accent);color:var(--bg);">📢 Канал</button>
+                <button class="btn" id="channelTypeGroup" style="flex:1;background:var(--card);color:var(--text);">👥 Группа</button>
+            </div>
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">Участники:</p>
+            <div id="channelMembersPicker" style="max-height:200px;overflow-y:auto;margin-bottom:14px;"></div>
+            <div style="display:flex;gap:10px;">
+                <button class="btn" style="background:var(--card);color:var(--text);flex:1;" id="btnCancelChannel">Отмена</button>
+                <button class="btn" style="flex:1;" id="btnCreateChannel">Создать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ИНФО КАНАЛА/ГРУППЫ -->
+    <div id="channelInfoPanel" class="full-pane">
+        <div class="panel-nav"><i class="fas fa-chevron-left" id="closeChannelInfoBtn"></i><span id="channelInfoTitle">Инфо</span></div>
+        <div style="text-align:center;margin-bottom:25px;">
+            <div class="avatar" id="channelInfoAvatar" style="width:90px;height:90px;margin:0 auto 12px;font-size:36px;"></div>
+            <h2 id="channelInfoName" style="margin-bottom:6px;"></h2>
+            <p id="channelInfoType" style="color:var(--text-secondary);font-size:13px;"></p>
+            <p id="channelInfoOwner" style="color:var(--accent);font-size:13px;margin-top:6px;"></p>
+        </div>
+        <div class="section-header">Участники</div>
+        <div id="channelInfoMembers" style="padding:0;"></div>
+    </div>
+
+    <!-- ПАНЕЛЬ УСТРОЙСТВ -->
+    <div id="panelDevices" class="full-pane">
+        <div class="panel-nav"><i class="fas fa-chevron-left" id="closeDevicesPanelBtn"></i>Устройства</div>
+        <div id="deviceList" style="padding: 20px;"></div>
+        <div style="text-align:center;margin-top:20px;">
+            <button class="btn" id="btnShowQR" style="width:auto;padding:12px 30px;"><i class="fas fa-qrcode"></i> Добавить устройство</button>
+        </div>
+    </div>
+
+    <!-- QR КОД МОДАЛКА -->
+    <div class="edit-modal-overlay" id="qrModal">
+        <div class="edit-modal-card" style="text-align:center;">
+            <h3 style="margin-bottom:14px;">Вход по QR-коду</h3>
+            <canvas id="qrCanvas" style="margin:0 auto 14px;"></canvas>
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">Отсканируйте этот код на другом устройстве</p>
+            <button class="btn" style="background:var(--card);color:var(--text);" id="btnCloseQR">Закрыть</button>
+        </div>
+    </div>
+    <div id="panelSecurity" class="full-pane">
+        <div class="panel-nav"><i class="fas fa-chevron-left" id="closeSecurityPanelBtn"></i>Безопасность</div>
+        <div class="switch-container">
+            <span>Secure Mode (E2EE)</span>
+            <label class="ios-switch">
+                <input type="checkbox" id="securityToggle">
+                <span class="switch-slider"></span>
+            </label>
+        </div>
+        <div style="padding:20px;">
+            <button class="btn" style="background:var(--card);color:var(--text);margin-bottom:12px;" id="btnFaceId"><i class="fas fa-face-smile"></i> Привязать Face ID</button>
+            <div id="faceIdStatus" style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;display:none;"></div>
+        </div>
+    </div>
+    <div id="panelStorage" class="full-pane">
+        <div class="panel-nav"><i class="fas fa-chevron-left" id="closeStoragePanelBtn"></i>Хранилище</div>
+        <button class="btn" style="background:#ff3b30; color:#fff;" id="btnClearCache">Очистить кэш</button>
+    </div>
+
+    <!-- ПАНЕЛЬ SPARK PREMIUM -->
+    <div id="panelPremium" class="full-pane">
+        <div class="panel-nav"><i class="fas fa-chevron-left" id="closePremiumPanelBtn"></i>SPARK Premium</div>
+        <div style="text-align:center;padding:30px 20px 10px;">
+            <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#6c5ce7,#a29bfe);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:36px;color:#fff;"><i class="fas fa-bolt"></i></div>
+            <h2 style="margin-bottom:8px;">SPARK Premium</h2>
+            <p id="premiumStatusText" style="color:var(--text-secondary);font-size:14px;margin-bottom:24px;">Не активирован</p>
+        </div>
+        <div style="padding:0 20px;">
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
+                <h4 style="margin-bottom:12px;color:var(--accent);"><i class="fas fa-star"></i> Возможности Premium:</h4>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-thumbtack" style="color:var(--accent);width:20px;"></i><span>Безлимитные закрепы</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-broadcast-tower" style="color:var(--accent);width:20px;"></i><span>Безлимитные каналы</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-users" style="color:var(--accent);width:20px;"></i><span>Безлимитные группы</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-dot-circle" style="color:var(--accent);width:20px;"></i><span>Кружки до 10 минут</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-language" style="color:var(--accent);width:20px;"></i><span>Авто-перевод сообщений</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-robot" style="color:var(--accent);width:20px;"></i><span>🤖 AI-бот переводчик</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-bolt" style="color:var(--accent);width:20px;"></i><span>⚡ Значок рядом с именем</span></div>
+                </div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
+                <h4 style="margin-bottom:12px;"><i class="fas fa-tags"></i> Выберите тариф:</h4>
+                <div style="display:flex;flex-direction:column;gap:10px;" id="premiumPlans">
+                    <label class="premium-plan-option" data-plan="month" style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid var(--border);border-radius:12px;cursor:pointer;transition:border-color 0.2s;">
+                        <input type="radio" name="premiumPlan" value="month" style="display:none;">
+                        <div style="width:22px;height:22px;border-radius:50%;border:2px solid var(--text-secondary);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color 0.2s;"></div>
+                        <div style="flex:1;"><div style="font-weight:700;">1 месяц</div><div style="font-size:12px;color:var(--text-secondary);">Доступ на 30 дней</div></div>
+                        <div style="font-weight:900;font-size:18px;color:var(--accent);">100 ₽</div>
+                    </label>
+                    <label class="premium-plan-option" data-plan="year" style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid var(--border);border-radius:12px;cursor:pointer;transition:border-color 0.2s;">
+                        <input type="radio" name="premiumPlan" value="year" style="display:none;">
+                        <div style="width:22px;height:22px;border-radius:50%;border:2px solid var(--text-secondary);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color 0.2s;"></div>
+                        <div style="flex:1;"><div style="font-weight:700;">1 год <span style="background:#2ecc71;color:#fff;font-size:10px;padding:2px 6px;border-radius:6px;font-weight:600;">-58%</span></div><div style="font-size:12px;color:var(--text-secondary);">Доступ на 365 дней</div></div>
+                        <div style="font-weight:900;font-size:18px;color:var(--accent);">500 ₽</div>
+                    </label>
+                    <label class="premium-plan-option" data-plan="forever" style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid var(--border);border-radius:12px;cursor:pointer;transition:border-color 0.2s;">
+                        <input type="radio" name="premiumPlan" value="forever" style="display:none;">
+                        <div style="width:22px;height:22px;border-radius:50%;border:2px solid var(--text-secondary);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color 0.2s;"></div>
+                        <div style="flex:1;"><div style="font-weight:700;">Навсегда <span style="background:linear-gradient(135deg,#6c5ce7,#a29bfe);color:#fff;font-size:10px;padding:2px 6px;border-radius:6px;font-weight:600;">ЛУЧШИЙ</span></div><div style="font-size:12px;color:var(--text-secondary);">Бессрочный доступ</div></div>
+                        <div style="font-weight:900;font-size:18px;color:var(--accent);">1000 ₽</div>
+                    </label>
+                </div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
+                <h4 style="margin-bottom:8px;"><i class="fas fa-wallet"></i> Оплата:</h4>
+                <p style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">Переведите <strong style="color:var(--text);" id="premiumAmountDisplay">100 ₽</strong> по номеру:</p>
+                <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;font-size:18px;font-weight:700;letter-spacing:1px;margin-bottom:10px;">+7 926 662-58-07</div>
+                <p style="font-size:12px;color:var(--text-secondary);">Тинькофф · Комментарий: ваш @username</p>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:16px;">
+                <p style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">Загрузите квитанцию об оплате (скриншот):</p>
+                <input type="file" id="premiumReceiptInput" accept="image/*" hidden>
+                <div id="premiumReceiptPreview" style="display:none;margin-bottom:10px;text-align:center;"><img id="premiumReceiptImg" style="max-width:100%;max-height:200px;border-radius:8px;"></div>
+                <button class="btn" id="btnUploadReceipt" style="width:100%;background:var(--card);color:var(--text);border:1px solid var(--border);margin-bottom:10px;"><i class="fas fa-camera"></i> Выбрать квитанцию</button>
+                <button class="btn" id="btnActivatePremium" style="width:100%;background:linear-gradient(135deg,#6c5ce7,#a29bfe);color:#fff;">Отправить на проверку</button>
+            </div>
+            <div id="premiumActivateMessage" style="text-align:center;font-size:13px;color:var(--text-secondary);display:none;margin-bottom:20px;"></div>
+        </div>
+    </div>
+
+    <!-- ПАНЕЛЬ КАСТОМА (PREMIUM) -->
+    <div id="panelCustom" class="full-pane">
+        <div class="panel-nav"><i class="fas fa-chevron-left" id="closeCustomPanelBtn"></i>Кастом</div>
+        <div style="padding:0 20px;">
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
+                <h4 style="margin-bottom:12px;color:var(--accent);"><i class="fas fa-eye"></i> Прозрачность</h4>
+                <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Прозрачность карточек и панелей</p>
+                <input type="range" id="customOpacity" min="0" max="100" value="100" style="width:100%;accent-color:var(--accent);">
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);margin-top:4px;"><span>0%</span><span id="customOpacityValue">100%</span><span>100%</span></div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
+                <h4 style="margin-bottom:12px;color:var(--accent);"><i class="fas fa-image"></i> Обои чата</h4>
+                <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Загрузите своё изображение для обоев чата</p>
+                <input type="file" id="customWallpaperInput" accept="image/*" hidden>
+                <div id="customWallpaperPreview" style="display:none;margin-bottom:10px;text-align:center;"><img id="customWallpaperImg" style="max-width:100%;max-height:150px;border-radius:8px;"></div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn" id="btnUploadWallpaper" style="flex:1;background:var(--card);color:var(--text);border:1px solid var(--border);"><i class="fas fa-upload"></i> Выбрать</button>
+                    <button class="btn" id="btnRemoveWallpaper" style="flex:1;background:#ff3b30;color:#fff;"><i class="fas fa-trash"></i> Убрать</button>
+                </div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
+                <h4 style="margin-bottom:12px;color:var(--accent);"><i class="fas fa-palette"></i> Цвет карточек</h4>
+                <div id="customCardColors" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
+                <h4 style="margin-bottom:12px;color:var(--accent);"><i class="fas fa-language"></i> Авто-перевод</h4>
+                <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Автоматически переводить входящие сообщения</p>
+                <label style="display:flex;align-items:center;gap:12px;cursor:pointer;">
+                    <input type="checkbox" id="autoTranslateToggle" style="width:20px;height:20px;accent-color:var(--accent);">
+                    <span style="font-size:14px;">Включить авто-перевод</span>
+                </label>
+            </div>
+            <button class="btn" id="btnSaveCustom" style="background:linear-gradient(135deg,#6c5ce7,#a29bfe);color:#fff;margin-bottom:20px;"><i class="fas fa-check"></i> Сохранить</button>
+        </div>
+    </div>
+
+    <!-- ПАНЕЛЬ УПРАВЛЕНИЯ PREMIUM (ТОЛЬКО ДЛЯ СОЗДАТЕЛЯ) -->
+    <div id="panelAdminPremium" class="full-pane">
+        <div class="panel-nav"><i class="fas fa-chevron-left" id="closeAdminPremiumPanelBtn"></i>Управление Premium</div>
+        <div style="padding:20px;">
+            <div class="section-header">⏳ Квитанции на проверке</div>
+            <div id="adminReceiptsList" style="margin-bottom:16px;"></div>
+            <div class="section-header">Поиск пользователя</div>
+            <div style="display:flex;gap:8px;margin-bottom:16px;">
+                <input type="text" id="adminPremiumSearch" class="input" placeholder="Поиск @username..." style="flex:1;margin-bottom:0;">
+                <button class="btn" id="btnAdminPremiumSearch" style="padding:12px 16px;width:auto;"><i class="fas fa-search"></i></button>
+            </div>
+            <div id="adminPremiumSearchResults" style="margin-bottom:16px;"></div>
+            <div class="section-header">Premium пользователи</div>
+            <div id="adminPremiumUsersList" style="margin-bottom:16px;"></div>
+        </div>
+    </div>
+
+    <!-- REACTION PICKER -->
+    <div id="reactionPicker" style="display:none;position:fixed;z-index:12000;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:4px 6px;gap:2px;flex-direction:row;box-shadow:0 4px 20px rgba(0,0,0,0.35);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);">
+        <button class="reaction-emoji" data-reaction="👍" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">👍</button>
+        <button class="reaction-emoji" data-reaction="❤️" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">❤️</button>
+        <button class="reaction-emoji" data-reaction="😂" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">😂</button>
+        <button class="reaction-emoji" data-reaction="😮" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">😮</button>
+        <button class="reaction-emoji" data-reaction="😢" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">😢</button>
+        <button class="reaction-emoji" data-reaction="🔥" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">🔥</button>
+    </div>
+
+    <!-- ANIMATED SPARK CHARACTER -->
+    <div id="sparkCharacter" style="display:none;position:fixed;bottom:80px;right:16px;z-index:10500;pointer-events:none;">
+        <svg id="sparkCharSvg" width="80" height="100" viewBox="0 0 80 100">
+            <g id="sparkCharBody">
+                <path d="M40 5 L50 20 L60 10 L55 30 L70 25 L58 40 L75 50 L55 50 L60 70 L45 55 L50 80 L40 65 L30 80 L35 55 L20 70 L25 50 L5 50 L22 40 L10 25 L25 30 L20 10 L30 20 Z" fill="var(--accent)" stroke="#fff" stroke-width="1.5"/>
+                <circle cx="34" cy="35" r="2.5" fill="#fff"/><circle cx="46" cy="35" r="2.5" fill="#fff"/>
+                <path d="M36 42 Q40 46 44 42" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+                <line id="sparkLeftArm" x1="12" y1="50" x2="2" y2="40" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+                <line id="sparkRightArm" x1="68" y1="50" x2="78" y2="40" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+                <line id="sparkLeftLeg" x1="35" y1="75" x2="28" y2="95" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+                <line id="sparkRightLeg" x1="45" y1="75" x2="52" y2="95" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+            </g>
+        </svg>
+    </div>
+
+    <link rel="stylesheet" href="desktop.css" media="(min-width: 768px)">
     <script type="module" src="script.js"></script>
 </body>
 </html>

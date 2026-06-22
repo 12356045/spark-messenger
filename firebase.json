@@ -3,8 +3,35 @@
     "public": ".",
     "ignore": [
       "firebase.json",
+      ".firebaseignore",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "dist/**",
+      "electron/**",
+      "engine/**",
+      "www/**",
+      "functions/**",
+      "android/**",
+      "ios/**",
+      ".github/**",
+      ".githubworkflows/**",
+      "package.json",
+      "package-lock.json",
+      "*.exe",
+      "*.asar",
+      "*.dll",
+      "*.bin",
+      "*.dat",
+      "*.pak",
+      "*.ico",
+      "*.icns",
+      "*.apk",
+      "*.zip",
+      "*.txt",
+      "build_marker.txt",
+      "capacitor.config.*",
+      "firestore.rules",
+      "storage.rules"
     ],
     "rewrites": [
       {
@@ -12,5 +39,11 @@
         "destination": "/index.html"
       }
     ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }

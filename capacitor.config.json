@@ -8,5 +8,10 @@
   "ios": {
     "contentInset": "always",
     "backgroundColor": "#1a1a2e"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
   }
 }
