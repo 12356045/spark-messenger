@@ -43,7 +43,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "icon.ico",
@@ -59,15 +61,16 @@
       "installerHeaderIcon": "icon.ico",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "SPARK",
-      "installerLanguages": ["1049"],
-      "language": "1049"
+      "shortcutName": "SPARK"
     },
     "mac": {
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "icon": "icon.png",
@@ -75,12 +78,22 @@
     },
     "dmg": {
       "contents": [
-        { "x": 130, "y": 220 },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "icon": "icon.png",
       "category": "Network;InstantMessaging"
     },
@@ -95,7 +108,7 @@
     "@capacitor/cli": "^5.7.8",
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0",
-    "electron-updater": "^6.0.0",
+    "electron-updater": "^6.8.9",
     "firebase-tools": "^15.22.0",
     "png2icons": "^2.0.1"
   },
