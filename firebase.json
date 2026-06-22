@@ -17,23 +17,28 @@
       ".githubworkflows/**",
       "package.json",
       "package-lock.json",
-      "*.exe",
       "*.asar",
       "*.dll",
       "*.bin",
       "*.dat",
       "*.pak",
-      "*.ico",
       "*.icns",
-      "*.apk",
       "*.zip",
       "*.txt",
       "build_marker.txt",
       "capacitor.config.*",
       "firestore.rules",
-      "storage.rules"
+      "storage.rules",
+      "build-output.txt",
+      "installer.nsh",
+      "*.exe",
+      "*.apk"
     ],
     "rewrites": [
+      {
+        "source": "/download.html",
+        "destination": "/download.html"
+      },
       {
         "source": "**",
         "destination": "/index.html"

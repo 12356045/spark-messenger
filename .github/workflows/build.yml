@@ -6,7 +6,6 @@ on:
       - 'v*'
     branches:
       - master
-      - v2.0.1
   workflow_dispatch:
 
 permissions:
@@ -27,11 +26,7 @@ jobs:
         run: npm install
 
       - name: Build Windows installer
-        run: npx electron-builder --win --x64 2>&1 | Tee-Object -FilePath build-log.txt
-
-      - name: Show build log on failure
-        if: failure()
-        run: Get-Content build-log.txt
+        run: node ./node_modules/electron-builder/out/cli/cli.js --win --x64
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -54,11 +49,7 @@ jobs:
         run: npm install
 
       - name: Build macOS DMG
-        run: npx electron-builder --mac 2>&1 | tee build-log.txt
-
-      - name: Show build log on failure
-        if: failure()
-        run: cat build-log.txt
+        run: node ./node_modules/electron-builder/out/cli/cli.js --mac
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -97,10 +88,10 @@ jobs:
             ## SPARK ${{ github.ref_name }}
             
             ### Windows
-            - Скачайте `SPARK-Setup-*.exe` и запустите
+            - Скачайте `SPARK-Setup.exe` и запустите
             
             ### macOS
-            - Скачайте `SPARK-*.dmg`, откройте и перетащите SPARK в Applications
+            - Скачайте `SPARK.dmg`, откройте и перетащите SPARK в Applications
             
             ### Веб-версия
             - https://spark-ead35.web.app

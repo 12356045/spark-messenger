@@ -294,10 +294,10 @@
         </div>
         <h3>Windows</h3>
         <div class="desc">Нативное приложение для Windows 10/11. Полнофункциональный мессенджер с поддержкой звонков и уведомлений.</div>
-        <a href="https://github.com/12356045/spark-messenger/releases/latest/download/SPARK-Setup.exe" class="download-btn primary" id="win-dl-btn">
+        <a href="https://github.com/12356045/spark-messenger/releases/latest" class="download-btn primary" id="win-dl-btn">
             <i class="fas fa-download"></i> Скачать для Windows
         </a>
-        <div class="file-info">SPARK-Setup.exe • Windows 10/11 • NSIS Installer</div>
+        <div class="file-info" id="win-info">Загрузка с GitHub Releases...</div>
     </div>
 
     <!-- macOS -->
@@ -400,16 +400,15 @@
         const assets = data.assets || [];
         const winAsset = assets.find(a => a.name.endsWith('.exe'));
         const macAsset = assets.find(a => a.name.endsWith('.dmg'));
-        const macZip = assets.find(a => a.name.endsWith('-mac.zip'));
         if (winAsset) {
             const btn = document.getElementById('win-dl-btn');
-            if (btn) { btn.href = winAsset.browser_download_url; btn.removeAttribute('id'); }
-            const info = document.querySelector('.platform-card:nth-child(1) .file-info');
+            if (btn) { btn.href = winAsset.browser_download_url; }
+            const info = document.getElementById('win-info');
             if (info) info.textContent = winAsset.name + ' • Windows 10/11 • ' + Math.round(winAsset.size / 1024 / 1024) + 'MB';
         }
         if (macAsset) {
             const btn = document.getElementById('mac-dl-btn');
-            if (btn) { btn.href = macAsset.browser_download_url; btn.removeAttribute('id'); }
+            if (btn) { btn.href = macAsset.browser_download_url; }
             const info = document.querySelector('.platform-card:nth-child(2) .file-info');
             if (info) info.textContent = macAsset.name + ' • macOS 13+ • ' + Math.round(macAsset.size / 1024 / 1024) + 'MB';
         }

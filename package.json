@@ -55,13 +55,16 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "allowToChangeInstallationDirectory": false,
+      "perMachine": false,
+      "include": "installer.nsh",
       "installerIcon": "icon.ico",
       "uninstallerIcon": "icon.ico",
       "installerHeaderIcon": "icon.ico",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "SPARK"
+      "shortcutName": "SPARK",
+      "deleteAppDataOnUninstall": false
     },
     "mac": {
       "target": [
