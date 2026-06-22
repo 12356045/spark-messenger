@@ -57,7 +57,6 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": false,
       "perMachine": false,
-      "include": "installer.nsh",
       "installerIcon": "icon.ico",
       "uninstallerIcon": "icon.ico",
       "installerHeaderIcon": "icon.ico",
