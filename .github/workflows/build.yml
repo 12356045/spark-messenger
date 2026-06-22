@@ -25,16 +25,21 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Debug node_modules
-        run: |
-          dir node_modules\.bin\electron-builder*
-          node -e "console.log(require('electron-builder/package.json').version)"
-        shell: cmd
-
       - name: Build Windows installer
-        run: npx --yes electron-builder --win --x64
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          npx --yes electron-builder --win --x64 2>&1 | Out-File -FilePath build-log.txt -Encoding utf8
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content build-log.txt
+            exit $LASTEXITCODE
+          }
+        shell: pwsh
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-windows
+          path: build-log.txt
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -56,15 +61,18 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Debug node_modules
-        run: |
-          ls node_modules/.bin/electron-builder* 2>/dev/null || echo "NOT FOUND"
-          node -e "console.log(require('electron-builder/package.json').version)"
-
       - name: Build macOS DMG
-        run: npx --yes electron-builder --mac
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          npx --yes electron-builder --mac 2>&1 | tee build-log.txt
+          exit ${PIPESTATUS[0]}
+        shell: bash
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-macos
+          path: build-log.txt
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -103,12 +111,12 @@ jobs:
             ## SPARK ${{ github.ref_name }}
             
             ### Windows
-            - Скачайте `SPARK-Setup.exe` и запустите
+            - Download `SPARK-Setup.exe` and run
             
             ### macOS
-            - Скачайте `SPARK.dmg`, откройте и перетащите SPARK в Applications
+            - Download `SPARK.dmg`, open and drag SPARK to Applications
             
-            ### Веб-версия
+            ### Web
             - https://spark-ead35.web.app
           draft: false
           prerelease: false
