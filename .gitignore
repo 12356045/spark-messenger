@@ -47,6 +47,9 @@ build/Release
 # Dependency directories
 node_modules/
 
+# Build output
+dist/
+
 # Optional npm cache directory
 .npm
 
@@ -67,3 +70,15 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Build artifacts and temp files
+*.apk
+*.icns
+icon.icns
+spark.apk
+Node.js
+build_marker.txt
+deploy_err.txt
+deploy_out.txt
+functions/
+ios/
