@@ -27,7 +27,11 @@ jobs:
         run: npm install
 
       - name: Build Windows installer
-        run: npx electron-builder --win --x64
+        run: npx electron-builder --win --x64 2>&1 | Tee-Object -FilePath build-log.txt
+
+      - name: Show build log on failure
+        if: failure()
+        run: Get-Content build-log.txt
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -49,8 +53,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build macOS DMG (Intel + Apple Silicon)
-        run: npx electron-builder --mac
+      - name: Build macOS DMG
+        run: npx electron-builder --mac 2>&1 | tee build-log.txt
+
+      - name: Show build log on failure
+        if: failure()
+        run: cat build-log.txt
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
