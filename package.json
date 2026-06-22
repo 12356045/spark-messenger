@@ -1,6 +1,6 @@
 {
   "name": "spark-messenger",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "SPARK Messenger — Powered by SparkEngine",
   "main": "electron/main.js",
   "scripts": {
@@ -101,7 +101,9 @@
     },
     "forceCodeSigning": false
   },
-  "dependencies": {},
+  "dependencies": {
+    "@google-cloud/storage": "^7.21.0"
+  },
   "devDependencies": {
     "@capacitor/android": "^5.7.8",
     "@capacitor/cli": "^5.7.8",
@@ -110,7 +112,8 @@
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0",
     "electron-updater": "^6.8.9",
-    "png2icons": "^2.0.1"
+    "png2icons": "^2.0.1",
+    "sharp": "^0.35.2"
   },
   "repository": {
     "type": "git",

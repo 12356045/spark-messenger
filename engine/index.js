@@ -18,7 +18,7 @@ const notifyMod = tryRequire('./notify');
 const updaterMod = tryRequire('./updater');
 
 module.exports = {
-    version: '2.0.1',
+    version: '2.0.2',
     SparkApp: appMod?.SparkApp || null,
     EventBus: appMod?.EventBus || null,
     Config: appMod?.Config || null,

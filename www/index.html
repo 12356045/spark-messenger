@@ -7,8 +7,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>SPARK PREMIUM</title>
+    <title>SPARK v2.0.2</title>
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -113,15 +115,15 @@
         }
         .splash-content { position: relative; display: flex; align-items: center; justify-content: center; gap: 20px; width: auto; min-width: 360px; min-height: 140px; }
         #welcomeTitle { font-size: 46px; font-weight: 900; letter-spacing: 9px; opacity: 0; color: #fff; transform: translateX(-18px); animation: titleSlide 2.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        #splashBolt {
+        #splashStar {
             font-size: 72px; color: var(--accent);
             position: relative; display: inline-block; transform-origin: center center;
-            animation: boltLaunch 3.2s cubic-bezier(0.16, 1, 0.3, 1) forwards, boltPulse 1.6s ease-in-out 2.8s 0.6s infinite alternate;
+            animation: starLaunch 3.2s cubic-bezier(0.16, 1, 0.3, 1) forwards, starPulse 1.6s ease-in-out 2.8s 0.6s infinite alternate;
             filter: drop-shadow(0 0 35px rgba(255,255,255,0.4));
             will-change: transform, opacity;
         }
 
-        @keyframes boltLaunch {
+        @keyframes starLaunch {
             0% { transform: translate3d(-320px, -220px, 0) scale3d(0.35, 0.35, 1) rotate(-45deg); opacity: 0; }
             18% { transform: translate3d(-90px, -140px, 0) scale3d(0.75, 0.75, 1) rotate(-12deg); opacity: 0.9; }
             36% { transform: translate3d(0px, -60px, 0) scale3d(1.18, 1.18, 1) rotate(6deg); opacity: 1; }
@@ -130,7 +132,7 @@
             100% { transform: translate3d(180px, 60px, 0) scale3d(0.92, 0.92, 1) rotate(270deg); opacity: 0.92; }
         }
 
-        @keyframes boltPulse {
+        @keyframes starPulse {
             0% { transform: translate3d(180px, 60px, 0) scale3d(0.92, 0.92, 1); opacity: 0.92; }
             50% { transform: translate3d(180px, 60px, 0) scale3d(1.04, 1.04, 1); opacity: 1; }
             100% { transform: translate3d(180px, 60px, 0) scale3d(0.98, 0.98, 1); opacity: 0.9; }
@@ -222,11 +224,12 @@
             50% { box-shadow: 0 0 16px rgba(255,255,255,0.8); transform: scale(1.15); }
         }
 
-        /* ПАРЯЩАЯ КАПСУЛА НАВИГАЦИИ */
+        /* HAMBURGER */
         #btnHamburger { display: none !important; }
         #btnHamburger2 { display: none !important; }
 
-        .footer { 
+        /* Нижняя панель — видна на телефоне, скрыта на ПК */
+        .footer {
             position: fixed; bottom: calc(15px + var(--safe-bottom)); left: 50%;
             transform: translate3d(-50%, 0, 0); width: calc(100% - 30px); max-width: 400px; height: 60px;
             border: 1px solid var(--border) !important; background: var(--card) !important;
@@ -256,52 +259,72 @@
         @keyframes chatSlideIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
         
         .chat-header { 
-            padding: 10px 12px; display: flex; align-items: center; gap: 10px;
+            padding: 8px 10px; display: flex; align-items: center; gap: 10px;
             margin: 10px 12px 8px !important; z-index: 1000;
-        }
-
-        .chat-header .hdr-capsule {
-            display: flex; align-items: center; gap: 8px;
             background: var(--card); border: 1px solid var(--border);
-            border-radius: 24px; padding: 6px 14px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.2); backdrop-filter: blur(12px);
-            transition: transform 0.2s var(--spring);
+            border-radius: 28px; position: relative;
         }
-        .chat-header .hdr-capsule:active { transform: scale(0.96); }
 
         .chat-header .hdr-back {
-            cursor: pointer; color: var(--accent); font-size: 18px;
-            padding: 6px; border-radius: 50%;
+            cursor: pointer; color: var(--accent); font-size: 16px;
+            width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--card); border: 1px solid var(--border);
+            transition: background 0.2s, transform 0.2s;
+        }
+        .chat-header .hdr-back:hover { background: rgba(255,255,255,0.15); transform: scale(0.95); }
+
+        .hdr-capsule {
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+            border-radius: 20px; padding: 5px 14px;
+            cursor: pointer; flex: 1; min-width: 0;
             transition: background 0.2s;
         }
-        .chat-header .hdr-back:hover { background: rgba(255,255,255,0.1); }
+        .hdr-capsule:hover { background: rgba(255,255,255,0.1); }
 
-        .chat-header .hdr-info { cursor: pointer; text-align: center; min-width: 0; }
-        .chat-header .hdr-info h4 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; font-size: 14px; font-weight: 700; }
-        .chat-header .hdr-info small { color: var(--text-secondary); font-size: 11px; }
+        .chat-header .hdr-capsule .hdr-text {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-width: 0;
+        }
+
+        .chat-header .hdr-capsule h4 {
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            margin: 0; font-size: 14px; font-weight: 700; color: var(--text);
+            text-align: center;
+        }
+        .chat-header .hdr-capsule small {
+            color: var(--text-secondary); font-size: 10px; display: block; margin-top: 0;
+            text-align: center;
+        }
 
         .hdr-actions {
-            display: flex; flex-direction: column; gap: 8px;
+            position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; gap: 4px;
             max-height: 0; overflow: hidden; opacity: 0;
-            transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease, margin-top 0.25s ease;
-            margin-top: 0;
+            transition: max-height 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease, padding 0.3s ease;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 14px; padding: 0;
+            z-index: 1001; min-width: 160px;
         }
         .hdr-actions.open {
-            max-height: 100px; opacity: 1; margin-top: 10px;
+            max-height: 90px; opacity: 1;
+            padding: 6px;
         }
 
         .hdr-action-btn {
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            padding: 10px 20px; border-radius: 14px; border: none;
-            background: var(--accent); color: #fff; font-size: 13px; font-weight: 600;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 8px 14px; border-radius: 10px; border: none;
+            background: var(--accent); color: var(--bg); font-size: 12px; font-weight: 600;
             cursor: pointer; transition: transform 0.2s, opacity 0.2s;
+            white-space: nowrap;
         }
         .hdr-action-btn:active { transform: scale(0.95); opacity: 0.8; }
 
         .chat-header .hdr-avatar {
             width: 40px; height: 40px; cursor: pointer; flex-shrink: 0;
             border-radius: 50%; overflow: hidden;
-            border: 2px solid var(--accent); padding: 2px;
+            border: 2px solid var(--text, #fff); padding: 0;
             background: var(--card);
         }
         
@@ -715,7 +738,7 @@
     <div id="splash" onclick="this.style.display='none'">
         <div class="splash-content">
             <div id="welcomeTitle">SPARK</div>
-            <i class="fas fa-bolt" id="splashBolt"></i>
+            <i class="fas fa-star" id="splashStar"></i>
         </div>
         <div id="swipeHint">НАЖМИТЕ ДЛЯ ВХОДА</div>
     </div>
@@ -791,6 +814,7 @@
             <div id="drawerUsername" style="font-size:13px;color:var(--text-secondary);"></div>
         </div>
         <div style="padding:8px 0;">
+            <div class="drawer-item" data-action="chats"><i class="fas fa-comment-alt" style="width:24px;"></i><span>Чаты</span></div>
             <div class="drawer-item" data-action="profile"><i class="fas fa-user" style="width:24px;"></i><span>Мой профиль</span></div>
             <div class="drawer-item pc-hide" data-action="wallet"><i class="fas fa-wallet" style="width:24px;"></i><span>Кошелёк</span></div>
             <div class="drawer-item" data-action="create-group"><i class="fas fa-users" style="width:24px;"></i><span>Создать группу</span></div>
@@ -880,7 +904,7 @@
                 </div>
                 <div class="settings-list" style="margin-top:12px;">
                     <div class="settings-item" id="btn-premium-edit" style="color:var(--accent);">
-                        <i class="fas fa-bolt" style="width:24px;color:var(--accent);"></i>
+                        <i class="fas fa-star" style="width:24px;color:var(--accent);"></i>
                         <span style="font-weight:600;">SPARK Premium</span>
                         <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--text-secondary);font-size:12px;"></i>
                     </div>
@@ -918,29 +942,35 @@
             <button class="btn" style="background:var(--card); color:var(--text);" id="btn-lang-uk">Українська</button>
             <button class="btn" style="background:var(--card); color:var(--text);" id="btn-lang-kk">Қазақша</button>
         </div>
+        <div style="margin-top:24px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius-md); padding:16px;">
+            <h4 style="margin-bottom:12px; color:var(--accent);"><i class="fas fa-language"></i> Авто-перевод</h4>
+            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">Автоматически переводить входящие сообщения (Premium)</p>
+            <label style="display:flex; align-items:center; gap:12px; cursor:pointer;">
+                <input type="checkbox" id="autoTranslateToggle" style="width:20px; height:20px; accent-color:var(--accent);">
+                <span style="font-size:14px;">Включить авто-перевод</span>
+            </label>
+        </div>
     </div>
 
     <!-- CHAT VIEW -->
     <div id="chatView">
         <div class="chat-header">
-            <div class="hdr-capsule">
-                <i class="fas fa-chevron-left hdr-back" id="btnExitChat"></i>
-            </div>
-            <div class="hdr-capsule hdr-info" id="chatHeaderInfo" style="flex:1;">
-                <h4 id="chatTargetName">Имя</h4>
-                <small id="chatTargetStatus">не в сети</small>
-                <div id="chatHeaderActions" class="hdr-actions">
-                    <button id="btnPhoneCall" class="hdr-action-btn">
-                        <i class="fas fa-phone-alt"></i> Позвонить
-                    </button>
-                    <button id="btnVideoCall" class="hdr-action-btn">
-                        <i class="fas fa-video"></i> Видеозвонок
-                    </button>
+            <i class="fas fa-chevron-left hdr-back" id="btnExitChat"></i>
+            <div class="hdr-capsule" id="chatHeaderInfo">
+                <div class="hdr-text">
+                    <h4 id="chatTargetName">Имя</h4>
+                    <small id="chatTargetStatus">не в сети</small>
                 </div>
             </div>
-            <div class="hdr-capsule">
-                <div class="avatar hdr-avatar" id="chatTargetAvatar"></div>
+            <div id="chatHeaderActions" class="hdr-actions">
+                <button id="btnPhoneCall" class="hdr-action-btn">
+                    <i class="fas fa-phone-alt"></i> Позвонить
+                </button>
+                <button id="btnVideoCall" class="hdr-action-btn">
+                    <i class="fas fa-video"></i> Видеозвонок
+                </button>
             </div>
+            <div class="avatar hdr-avatar" id="chatTargetAvatar"></div>
         </div>
         <div class="messages-area" id="messagesArea"></div>
         <div class="chat-input-bar">
@@ -1055,7 +1085,7 @@
             <div class="avatar" id="modalTargetAvatar" style="width:100px; height:100px; margin: 0 auto 20px; font-size:40px; border:none;"></div>
             <h2 id="modalTargetName" style="margin-bottom:6px;">Имя</h2>
             <p id="modalTargetUser" style="color:var(--text-secondary); margin-bottom:16px;">@username</p>
-            <div id="modalCreatorBadge" style="display:none;background:linear-gradient(135deg,#fff,#ccc);color:#000;font-size:12px;font-weight:800;padding:4px 12px;border-radius:20px;margin:0 auto 10px;width:fit-content;">⚡ Создатель SPARK</div>
+            <div id="modalCreatorBadge" style="display:none;background:linear-gradient(135deg,#fff,#ccc);color:#000;font-size:12px;font-weight:800;padding:4px 12px;border-radius:20px;margin:0 auto 10px;width:fit-content;">Создатель SPARK</div>
             <div style="text-align:left; display:flex; flex-direction:column; gap:10px; border-top: 1px solid var(--border); padding-top:16px;">
                 <div><small style="color:var(--text-secondary)" id="label-about">О себе</small><div id="modalTargetBio" style="font-size:15px; margin-top:2px;">Информация отсутствует</div></div>
                 <div><small style="color:var(--text-secondary)" id="label-birthday">Дата рождения</small><div id="modalTargetBirth" style="font-size:15px; margin-top:2px;">Не указана</div></div>
@@ -1103,9 +1133,22 @@
 
     <!-- КОНТЕКСТНОЕ МЕНЮ СООБЩЕНИЯ -->
     <div class="context-menu" id="messageContextMenu">
+        <div class="menu-item" id="btnMsgReply"><span data-i18n="reply">Ответить</span> <i class="fas fa-reply"></i></div>
+        <div class="menu-item" id="btnMsgForward"><span data-i18n="forward">Переслать</span> <i class="fas fa-share"></i></div>
+        <div class="menu-item" id="btnMsgCopy"><span data-i18n="copy">Копировать</span> <i class="fas fa-copy"></i></div>
         <div class="menu-item" id="btnMsgEdit"><span data-i18n="editMsg">Изменить</span> <i class="fas fa-pen"></i></div>
+        <div class="menu-item" id="btnMsgReact"><span data-i18n="react">Реакция</span> <i class="fas fa-smile"></i></div>
         <div class="menu-item danger" id="btnMsgDelete"><span data-i18n="deleteMsg">Удалить</span> <i class="fas fa-trash-alt"></i></div>
     </div>
+
+    <!-- ПАНЕЛЬ ДЕЙСТВИЙ НАД СООБЩЕНИЕМ ( floating ) -->
+    <div id="msgActionBar" style="display:none;position:fixed;z-index:12000;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:6px 8px;gap:2px;flex-direction:row;box-shadow:0 4px 20px rgba(0,0,0,0.35);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);">
+        <button class="action-bar-btn" data-action="reply" title="Ответить" style="font-size:18px;background:none;border:none;cursor:pointer;padding:8px 10px;border-radius:10px;color:var(--text);transition:background 0.15s;"><i class="fas fa-reply"></i></button>
+        <button class="action-bar-btn" data-action="forward" title="Переслать" style="font-size:18px;background:none;border:none;cursor:pointer;padding:8px 10px;border-radius:10px;color:var(--text);transition:background 0.15s;"><i class="fas fa-share"></i></button>
+        <button class="action-bar-btn" data-action="copy" title="Копировать" style="font-size:18px;background:none;border:none;cursor:pointer;padding:8px 10px;border-radius:10px;color:var(--text);transition:background 0.15s;"><i class="fas fa-copy"></i></button>
+        <button class="action-bar-btn" data-action="react" title="Реакция" style="font-size:18px;background:none;border:none;cursor:pointer;padding:8px 10px;border-radius:10px;color:var(--text);transition:background 0.15s;"><i class="fas fa-smile"></i></button>
+    </div>
+    <style>.action-bar-btn:hover{background:rgba(255,255,255,0.08)!important;}</style>
 
     <!-- РЕДАКТИРОВАНИЕ СООБЩЕНИЯ -->
     <div class="edit-modal-overlay" id="editMessageModal">
@@ -1119,6 +1162,16 @@
         </div>
     </div>
 
+    <!-- ВЫБОР ЧАТА ДЛЯ ПЕРЕСЫЛКИ -->
+    <div class="edit-modal-overlay" id="forwardPickerModal" style="display:none;">
+        <div class="edit-modal-card" style="max-height:70vh;overflow:hidden;display:flex;flex-direction:column;">
+            <h3 style="margin-bottom:14px;">Переслать в...</h3>
+            <input type="text" id="forwardSearchInput" class="input" placeholder="Поиск..." style="margin-bottom:12px;">
+            <div id="forwardChatList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
+            <button class="btn" style="background:var(--card);color:var(--text);width:100%;margin-top:12px;" id="btnCancelForward">Отмена</button>
+        </div>
+    </div>
+
     <input type="file" id="mediaFileInput" hidden>
 
     <!-- МОДАЛКА СОЗДАНИЯ КАНАЛА/ГРУППЫ -->
@@ -1127,8 +1180,8 @@
             <h3 style="margin-bottom:14px;">Новый канал/группа</h3>
             <input type="text" id="channelNameInput" class="input" placeholder="Название" style="margin-bottom:10px;">
             <div style="display:flex;gap:8px;margin-bottom:14px;">
-                <button class="btn" id="channelTypeChannel" style="flex:1;background:var(--accent);color:var(--bg);">📢 Канал</button>
-                <button class="btn" id="channelTypeGroup" style="flex:1;background:var(--card);color:var(--text);">👥 Группа</button>
+                <button class="btn" id="channelTypeChannel" style="flex:1;background:var(--accent);color:var(--bg);">Канал</button>
+                <button class="btn" id="channelTypeGroup" style="flex:1;background:var(--card);color:var(--text);">Группа</button>
             </div>
             <p style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">Участники:</p>
             <div id="channelMembersPicker" style="max-height:200px;overflow-y:auto;margin-bottom:14px;"></div>
@@ -1193,7 +1246,7 @@
     <div id="panelPremium" class="full-pane">
         <div class="panel-nav"><i class="fas fa-chevron-left" id="closePremiumPanelBtn"></i>SPARK Premium</div>
         <div style="text-align:center;padding:30px 20px 10px;">
-            <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#6c5ce7,#a29bfe);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:36px;color:#fff;"><i class="fas fa-bolt"></i></div>
+            <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#6c5ce7,#a29bfe);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:36px;color:#fff;"><i class="fas fa-star"></i></div>
             <h2 style="margin-bottom:8px;">SPARK Premium</h2>
             <p id="premiumStatusText" style="color:var(--text-secondary);font-size:14px;margin-bottom:24px;">Не активирован</p>
         </div>
@@ -1206,8 +1259,8 @@
                     <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-users" style="color:var(--accent);width:20px;"></i><span>Безлимитные группы</span></div>
                     <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-dot-circle" style="color:var(--accent);width:20px;"></i><span>Кружки до 10 минут</span></div>
                     <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-language" style="color:var(--accent);width:20px;"></i><span>Авто-перевод сообщений</span></div>
-                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-robot" style="color:var(--accent);width:20px;"></i><span>🤖 AI-бот переводчик</span></div>
-                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-bolt" style="color:var(--accent);width:20px;"></i><span>⚡ Значок рядом с именем</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-robot" style="color:var(--accent);width:20px;"></i><span>AI-бот переводчик</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-star" style="color:var(--accent);width:20px;"></i><span>★ Значок рядом с именем</span></div>
                 </div>
             </div>
             <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
@@ -1250,42 +1303,6 @@
         </div>
     </div>
 
-    <!-- ПАНЕЛЬ КАСТОМА (PREMIUM) -->
-    <div id="panelCustom" class="full-pane">
-        <div class="panel-nav"><i class="fas fa-chevron-left" id="closeCustomPanelBtn"></i>Кастом</div>
-        <div style="padding:0 20px;">
-            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
-                <h4 style="margin-bottom:12px;color:var(--accent);"><i class="fas fa-eye"></i> Прозрачность</h4>
-                <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Прозрачность карточек и панелей</p>
-                <input type="range" id="customOpacity" min="0" max="100" value="100" style="width:100%;accent-color:var(--accent);">
-                <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);margin-top:4px;"><span>0%</span><span id="customOpacityValue">100%</span><span>100%</span></div>
-            </div>
-            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
-                <h4 style="margin-bottom:12px;color:var(--accent);"><i class="fas fa-image"></i> Обои чата</h4>
-                <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Загрузите своё изображение для обоев чата</p>
-                <input type="file" id="customWallpaperInput" accept="image/*" hidden>
-                <div id="customWallpaperPreview" style="display:none;margin-bottom:10px;text-align:center;"><img id="customWallpaperImg" style="max-width:100%;max-height:150px;border-radius:8px;"></div>
-                <div style="display:flex;gap:8px;">
-                    <button class="btn" id="btnUploadWallpaper" style="flex:1;background:var(--card);color:var(--text);border:1px solid var(--border);"><i class="fas fa-upload"></i> Выбрать</button>
-                    <button class="btn" id="btnRemoveWallpaper" style="flex:1;background:#ff3b30;color:#fff;"><i class="fas fa-trash"></i> Убрать</button>
-                </div>
-            </div>
-            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
-                <h4 style="margin-bottom:12px;color:var(--accent);"><i class="fas fa-palette"></i> Цвет карточек</h4>
-                <div id="customCardColors" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
-            </div>
-            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
-                <h4 style="margin-bottom:12px;color:var(--accent);"><i class="fas fa-language"></i> Авто-перевод</h4>
-                <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Автоматически переводить входящие сообщения</p>
-                <label style="display:flex;align-items:center;gap:12px;cursor:pointer;">
-                    <input type="checkbox" id="autoTranslateToggle" style="width:20px;height:20px;accent-color:var(--accent);">
-                    <span style="font-size:14px;">Включить авто-перевод</span>
-                </label>
-            </div>
-            <button class="btn" id="btnSaveCustom" style="background:linear-gradient(135deg,#6c5ce7,#a29bfe);color:#fff;margin-bottom:20px;"><i class="fas fa-check"></i> Сохранить</button>
-        </div>
-    </div>
-
     <!-- ПАНЕЛЬ УПРАВЛЕНИЯ PREMIUM (ТОЛЬКО ДЛЯ СОЗДАТЕЛЯ) -->
     <div id="panelAdminPremium" class="full-pane">
         <div class="panel-nav"><i class="fas fa-chevron-left" id="closeAdminPremiumPanelBtn"></i>Управление Premium</div>
@@ -1306,26 +1323,11 @@
     <!-- REACTION PICKER -->
     <div id="reactionPicker" style="display:none;position:fixed;z-index:12000;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:4px 6px;gap:2px;flex-direction:row;box-shadow:0 4px 20px rgba(0,0,0,0.35);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);">
         <button class="reaction-emoji" data-reaction="👍" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">👍</button>
-        <button class="reaction-emoji" data-reaction="❤️" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">❤️</button>
+        <button class="reaction-emoji" data-reaction="" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;"></button>
         <button class="reaction-emoji" data-reaction="😂" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">😂</button>
         <button class="reaction-emoji" data-reaction="😮" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">😮</button>
         <button class="reaction-emoji" data-reaction="😢" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">😢</button>
         <button class="reaction-emoji" data-reaction="🔥" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">🔥</button>
-    </div>
-
-    <!-- ANIMATED SPARK CHARACTER -->
-    <div id="sparkCharacter" style="display:none;position:fixed;bottom:80px;right:16px;z-index:10500;pointer-events:none;">
-        <svg id="sparkCharSvg" width="80" height="100" viewBox="0 0 80 100">
-            <g id="sparkCharBody">
-                <path d="M40 5 L50 20 L60 10 L55 30 L70 25 L58 40 L75 50 L55 50 L60 70 L45 55 L50 80 L40 65 L30 80 L35 55 L20 70 L25 50 L5 50 L22 40 L10 25 L25 30 L20 10 L30 20 Z" fill="var(--accent)" stroke="#fff" stroke-width="1.5"/>
-                <circle cx="34" cy="35" r="2.5" fill="#fff"/><circle cx="46" cy="35" r="2.5" fill="#fff"/>
-                <path d="M36 42 Q40 46 44 42" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
-                <line id="sparkLeftArm" x1="12" y1="50" x2="2" y2="40" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
-                <line id="sparkRightArm" x1="68" y1="50" x2="78" y2="40" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
-                <line id="sparkLeftLeg" x1="35" y1="75" x2="28" y2="95" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
-                <line id="sparkRightLeg" x1="45" y1="75" x2="52" y2="95" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
-            </g>
-        </svg>
     </div>
 
     <link rel="stylesheet" href="desktop.css" media="(min-width: 768px)">

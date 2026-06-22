@@ -50,8 +50,8 @@ function getPremiumLimits(userData) {
 }
 
 function getDisplayName(name, userData) {
-    if (isCreator(userData)) return `⚡ ${name}`;
-    if (isPremium(userData)) return `⚡ ${name}`;
+    if (isCreator(userData)) return `${name}`;
+    if (isPremium(userData)) return `${name}`;
     return name;
 }
 
@@ -87,6 +87,8 @@ function hideAllContextMenus() {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
+    const bar = document.getElementById('msgActionBar');
+    if (bar) bar.style.display = 'none';
 }
 
 function setupLongPress(el, callback) {
@@ -153,14 +155,14 @@ window.showDynamicIsland = function(message, type = 'info') {
     const island = document.createElement('div');
     island.className = 'dynamic-island';
     let icon = '';
-    if (type === 'error') icon = '❌ ';
-    else if (type === 'success') icon = '✅ ';
-    else if (type === 'recording') icon = '🎙️ ';
-    else if (type === 'circle') icon = '📹 ';
-    else if (type === 'file') icon = '📎 ';
-    else if (type === 'message') icon = '💬 ';
-    else if (type === 'call') icon = '📞 ';
-    else icon = '⚡ ';
+    if (type === 'error') icon = '✕ ';
+    else if (type === 'success') icon = '';
+    else if (type === 'recording') icon = '';
+    else if (type === 'circle') icon = '';
+    else if (type === 'file') icon = '';
+    else if (type === 'message') icon = ' ';
+    else if (type === 'call') icon = '';
+    else icon = '';
     island.innerHTML = `${icon}${message}`;
     document.body.appendChild(island);
     setTimeout(() => island.remove(), 2500);
@@ -251,8 +253,8 @@ async function getCustomNameForUser(targetUserId) {
         if (targetDoc.exists()) {
             const targetData = targetDoc.data();
             let displayName = targetData.name || targetData.username || targetUserId;
-            if (isCreator(targetData)) displayName = `⚡ ${displayName}`;
-            else if (isPremium(targetData)) displayName = `⚡ ${displayName}`;
+            if (isCreator(targetData)) displayName = `${displayName}`;
+            else if (isPremium(targetData)) displayName = `${displayName}`;
             customNamesCache[targetUserId] = displayName;
             return displayName;
         }
@@ -269,7 +271,7 @@ async function addCustomSubscription(targetUserId, customName) {
     if (!currentUser || targetUserId === currentUser.uid) return;
     
     if (!customName || customName.trim() === '') {
-        showDynamicIsland('❌ Введите имя для подписки', 'error');
+        showDynamicIsland('✕ Введите имя для подписки', 'error');
         return;
     }
     
@@ -278,7 +280,7 @@ async function addCustomSubscription(targetUserId, customName) {
     const existingSub = (userData.customSubscriptions || []).find(s => s.userId === targetUserId);
     
     if (existingSub) {
-        showDynamicIsland('⚠️ Вы уже подписаны на этого пользователя', 'error');
+        showDynamicIsland('! Вы уже подписаны на этого пользователя', 'error');
         return;
     }
     
@@ -295,7 +297,7 @@ async function addCustomSubscription(targetUserId, customName) {
     });
     
     customNamesCache[targetUserId] = customName.trim();
-    showDynamicIsland(`✅ Подписка добавлена: ${customName.trim()}`, 'success');
+    showDynamicIsland(`Подписка добавлена: ${customName.trim()}`, 'success');
     loadChats();
 }
 
@@ -314,14 +316,14 @@ async function removeCustomSubscription(targetUserId) {
         });
         
         delete customNamesCache[targetUserId];
-        showDynamicIsland(`🗑️ Подписка удалена`, 'success');
+        showDynamicIsland(`Подписка удалена`, 'success');
         loadChats();
     }
 }
 
 async function renameCustomSubscription(targetUserId, newName) {
     if (!newName || newName.trim() === '') {
-        showDynamicIsland('❌ Имя не может быть пустым', 'error');
+        showDynamicIsland('✕ Имя не может быть пустым', 'error');
         return;
     }
     
@@ -343,13 +345,13 @@ async function renameCustomSubscription(targetUserId, newName) {
         });
         
         customNamesCache[targetUserId] = newName.trim();
-        showDynamicIsland(`✏️ Переименовано в "${newName.trim()}"`, 'success');
+        showDynamicIsland(`Переименовано в "${newName.trim()}"`, 'success');
         loadChats();
     }
 }
 
 function showAddSubscriptionDialog(targetUserId) {
-    const customName = prompt('📝 Введите имя для этого человека:', '');
+    const customName = prompt('Введите имя для этого человека:', '');
     if (customName && customName.trim()) {
         addCustomSubscription(targetUserId, customName.trim());
     }
@@ -371,7 +373,7 @@ async function loadCustomSubscriptions() {
     container.innerHTML = '';
     
     if (subscribers.length > 0) {
-        container.innerHTML += '<div style="padding:8px 0; color: rgba(255,255,255,0.6); font-size: 12px;">👥 ПОДПИСЧИКИ:</div>';
+        container.innerHTML += '<div style="padding:8px 0; color: rgba(255,255,255,0.6); font-size: 12px;">ПОДПИСЧИКИ:</div>';
         for (const subId of subscribers) {
             const subDoc = await getDoc(doc(db, "users", subId));
             if (subDoc.exists()) {
@@ -382,7 +384,7 @@ async function loadCustomSubscriptions() {
                 
                 container.innerHTML += `<div class="friend-item" style="display: flex; justify-content: space-between;">
                     <div><strong>${escape(displayName)}</strong></div>
-                    <button class="small-btn chatFromSubscribe" data-uid="${sub.uid}">💬</button>
+                    <button class="small-btn chatFromSubscribe" data-uid="${sub.uid}"></button>
                 </div>`;
             }
         }
@@ -738,10 +740,10 @@ async function doSendCircle(blob) {
         await addDoc(collection(db, "messages"), {
             chatId: uploadChatId, type: 'circle', content: dataUrl,
             mimeType: blob.type || 'video/webm', duration: dur, senderId: uploadUserId,
-            senderName: uploadUserName, timestamp: serverTimestamp()
+            senderName: uploadUserName, timestamp: serverTimestamp(), _localTime: Date.now()
         });
         await updateDoc(doc(db, "chats", uploadChatId), {
-            lastMessage: '📹 Кружок', lastMessageTime: serverTimestamp()
+            lastMessage: 'Кружок', lastMessageTime: serverTimestamp()
         });
         showDynamicIsland('Кружок отправлен!', 'success');
     } catch(e) {
@@ -820,8 +822,8 @@ if (fileInput) {
                         return;
                     }
                 }
-                await addDoc(collection(db, "messages"), { chatId: currentChatId, type, content, fileName: file.name, senderId: currentUser.uid, senderName: currentUser.name, timestamp: serverTimestamp() });
-                await updateDoc(doc(db, "chats", currentChatId), { lastMessage: type === 'image' ? '📷 Фото' : `📎 ${file.name}`, lastMessageTime: serverTimestamp() });
+                await addDoc(collection(db, "messages"), { chatId: currentChatId, type, content, fileName: file.name, senderId: currentUser.uid, senderName: currentUser.name, timestamp: serverTimestamp(), _localTime: Date.now() });
+                await updateDoc(doc(db, "chats", currentChatId), { lastMessage: type === 'image' ? 'Фото' : `${file.name}`, lastMessageTime: serverTimestamp() });
                 showDynamicIsland('Файл отправлен', 'success');
             } catch (err) {
                 console.error('Ошибка отправки файла:', err);
@@ -866,8 +868,8 @@ if (voiceRecordBtn) {
                         reader.onerror = () => reject(new Error('readFile failed'));
                         reader.readAsDataURL(blob);
                     });
-                    await addDoc(collection(db, "messages"), { chatId: currentChatId, type: 'voice', content: dataUrl, mimeType: blobType, senderId: currentUser.uid, senderName: currentUser.name, timestamp: serverTimestamp() });
-                    await updateDoc(doc(db, "chats", currentChatId), { lastMessage: '🎙️ Голосовое', lastMessageTime: serverTimestamp() });
+                    await addDoc(collection(db, "messages"), { chatId: currentChatId, type: 'voice', content: dataUrl, mimeType: blobType, senderId: currentUser.uid, senderName: currentUser.name, timestamp: serverTimestamp(), _localTime: Date.now() });
+                    await updateDoc(doc(db, "chats", currentChatId), { lastMessage: 'Голосовое', lastMessageTime: serverTimestamp() });
                     showDynamicIsland('Голосовое отправлено', 'success');
                 } catch (err) {
                     console.error('Ошибка отправки голосового:', err);
@@ -1253,7 +1255,9 @@ function openChat(id, name, otherId = null) {
     if (chatView) { chatView.style.display = 'flex'; chatView.classList.add('chat-open'); }
     
     const actions = document.getElementById('chatHeaderActions');
-    if (actions) actions.style.display = 'none';
+    if (actions) { actions.classList.remove('open'); actions.style.display = ''; }
+    
+    markMessagesAsRead(id);
     
     const inputBar = document.querySelector('.chat-input-bar');
     if (inputBar) inputBar.style.display = 'flex';
@@ -1285,8 +1289,8 @@ function openChat(id, name, otherId = null) {
         let msgs = []; 
         for (const d of snap.docs) msgs.push({ id: d.id, ...d.data() });
         msgs.sort((a, b) => {
-            const ta = a.timestamp?.toMillis?.() || 0;
-            const tb = b.timestamp?.toMillis?.() || 0;
+            const ta = a.timestamp?.toMillis?.() || a._localTime || 0;
+            const tb = b.timestamp?.toMillis?.() || b._localTime || 0;
             return ta - tb;
         });
         let area = document.getElementById('messagesArea'); 
@@ -1324,9 +1328,9 @@ function openChat(id, name, otherId = null) {
                 else if(msg.type === 'call') {
                     const callerName = await getCustomNameForUser(msg.callerId);
                     if (msg.callStatus === 'calling') {
-                        content = `<div class="message-text">📞 ${escape(callerName)} ${msg.isVideo ? t('videoCall') : t('audioCall')}</div>`;
+                        content = `<div class="message-text">${escape(callerName)} ${msg.isVideo ? t('videoCall') : t('audioCall')}</div>`;
                     } else if (msg.callStatus === 'answered') {
-                        content = `<div class="message-text" style="opacity:0.7;">✅ ${escape(callerName)} ${t('callAnswered')}</div>`;
+                        content = `<div class="message-text" style="opacity:0.7;">${escape(callerName)} ${t('callAnswered')}</div>`;
                     } else {
                         content = `<div class="message-text" style="opacity:0.5;">⏰ ${escape(callerName)} ${t('callMissed')}</div>`;
                     }
@@ -1341,7 +1345,6 @@ function openChat(id, name, otherId = null) {
                         content = `<div class="msg-emoji-only">${displayText}</div>`;
                     } else {
                         content = `<div class="message-text" data-msg-text="${escape(msg.text)}">${displayText}</div>`;
-                        content += `<div class="msg-translate-btn" onclick="event.stopPropagation(); window._translateMsg('${msg.id}', this.parentElement.querySelector('.message-text').dataset.msgText)" style="font-size:11px;color:var(--accent);cursor:pointer;margin-top:4px;opacity:0.7;">🌐 Перевести</div>`;
                     }
                     if(msg.edited) content += `<span class="edited-badge"> ${t('edited')}</span>`;
                 } 
@@ -1350,7 +1353,17 @@ function openChat(id, name, otherId = null) {
                 bubble.className = 'message-bubble';
                 if (msg.type === 'circle') bubble.classList.add('circle-bubble');
                 if (isMy && msg.type !== 'system' && msg.type !== 'call') bubble.classList.add('clickable');
-                bubble.innerHTML = `<div>${content}</div><div class="message-time">${msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || ''}</div>`;
+                let replyHtml = '';
+                if (msg.replyTo) {
+                    const replySnippet = msg.replyToText ? escape(msg.replyToText).substring(0, 80) : '';
+                    const replySender = msg.replyToSenderName ? escape(msg.replyToSenderName) : '';
+                    replyHtml = `<div class="reply-quote" style="border-left:3px solid var(--accent);padding:4px 10px;margin-bottom:6px;border-radius:4px;background:rgba(108,92,231,0.08);font-size:12px;"><div style="font-weight:600;color:var(--accent);font-size:11px;">${replySender}</div><div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">${replySnippet}</div></div>`;
+                }
+                let forwardHtml = '';
+                if (msg.forwardedFrom) {
+                    forwardHtml = `<div style="font-size:11px;color:var(--accent);font-weight:600;margin-bottom:4px;"><i class="fas fa-share" style="margin-right:4px;font-size:10px;"></i>Переслано от ${escape(msg.forwardedFrom)}</div>`;
+                }
+                bubble.innerHTML = `<div>${forwardHtml}${replyHtml}${content}</div><div class="message-time">${msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || ''}</div>`;
                 
                 if (msg.type === 'circle') initCirclePlayer(bubble);
                 
@@ -1359,10 +1372,33 @@ function openChat(id, name, otherId = null) {
                         e.stopPropagation();
                         const msgMenu = document.getElementById('messageContextMenu');
                         const editBtn = document.getElementById('btnMsgEdit');
-                        if (editBtn) editBtn.style.display = msg.type === 'text' ? 'flex' : 'none';
+                        if (editBtn) editBtn.style.display = msg.type === 'text' && isMy ? 'flex' : 'none';
                         editingMessageId = msg.id;
                         window._editingMsgText = msg.text || '';
+                        window._editingMsgData = msg;
                         showContextMenu(msgMenu, e.clientX, e.clientY);
+                    });
+                }
+                if (!isMy && msg.type !== 'system' && msg.type !== 'call' && msg.type !== 'circle') {
+                    bubble.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const bar = document.getElementById('msgActionBar');
+                        if (!bar) return;
+                        bar.style.display = 'flex';
+                        const bw = 280, bh = 44;
+                        let left = Math.max(10, Math.min(e.clientX - bw/2, window.innerWidth - bw - 10));
+                        let top = e.clientY - bh - 12;
+                        if (top < 10) top = e.clientY + 12;
+                        bar.style.left = left + 'px';
+                        bar.style.top = Math.max(10, top) + 'px';
+                        bar.dataset.msgId = msg.id;
+                        bar.dataset.msgType = msg.type || 'text';
+                        bar.dataset.msgText = msg.text || '';
+                        bar.dataset.msgContent = msg.content || '';
+                        bar.dataset.msgSenderName = msg.senderName || '';
+                        bar.dataset.msgFileName = msg.fileName || '';
+                        editingMessageId = msg.id;
+                        window._editingMsgData = msg;
                     });
                 }
                 if (msg.type === 'circle') {
@@ -1423,10 +1459,15 @@ async function sendMessage() {
         }
     }
     
-    await addDoc(collection(db, "messages"), { chatId: currentChatId, type: 'text', text: messageText, senderId: currentUser.uid, senderName: currentUser.name, timestamp: serverTimestamp(), edited: false, read: false });
+    await addDoc(collection(db, "messages"), { chatId: currentChatId, type: 'text', text: messageText, senderId: currentUser.uid, senderName: currentUser.name, timestamp: serverTimestamp(), _localTime: Date.now(), edited: false, read: false, replyTo: window._replyToMsgId || null, replyToText: window._replyToText || null, replyToSenderName: window._replyToSenderName || null });
     await updateDoc(doc(db, "chats", currentChatId), { lastMessage: messageText, lastMessageTime: serverTimestamp() });
     messageInput.value = '';
     toggleSendButton();
+    const rb = document.getElementById('replyBar');
+    if (rb) rb.remove();
+    window._replyToMsgId = null;
+    window._replyToText = null;
+    window._replyToSenderName = null;
     showDynamicIsland('Сообщение отправлено', 'message');
     const chatDoc = await getDoc(doc(db, "chats", currentChatId));
     const otherMember = chatDoc.data().members?.find(m => m.uid !== currentUser.uid);
@@ -1488,6 +1529,124 @@ document.getElementById('btnMsgDelete')?.addEventListener('click', () => {
     if (editingMessageId) deleteMessage(editingMessageId);
 });
 
+document.getElementById('btnMsgReply')?.addEventListener('click', () => {
+    hideAllContextMenus();
+    if (!editingMessageId) return;
+    const msgEl = document.querySelector(`[data-msg-id="${editingMessageId}"]`);
+    if (!msgEl) return;
+    const bubble = msgEl.querySelector('.message-text');
+    const replyText = bubble ? bubble.textContent : '';
+    const msgData = window._editingMsgData || {};
+    const senderName = msgData.senderName || '';
+    const replyBar = document.getElementById('replyBar') || document.createElement('div');
+    replyBar.id = 'replyBar';
+    replyBar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--card);border-left:3px solid var(--accent);border-radius:8px;margin:0 12px 4px;font-size:13px;color:var(--text-secondary);';
+    replyBar.innerHTML = `<i class="fas fa-reply" style="color:var(--accent);"></i><div style="flex:1;overflow:hidden;"><div style="font-size:11px;font-weight:600;color:var(--accent);">${escape(senderName)}</div><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escape(replyText).substring(0, 60)}</div></div><i class="fas fa-times" style="cursor:pointer;opacity:0.5;" onclick="this.closest('#replyBar').remove();window._replyToMsgId=null;window._replyToText=null;window._replyToSenderName=null;"></i>`;
+    const inputBar = document.querySelector('.chat-input-bar');
+    if (inputBar && !document.getElementById('replyBar')) inputBar.parentNode.insertBefore(replyBar, inputBar);
+    window._replyToMsgId = editingMessageId;
+    window._replyToText = replyText;
+    window._replyToSenderName = senderName;
+    editingMessageId = null;
+});
+
+document.getElementById('btnMsgForward')?.addEventListener('click', () => {
+    hideAllContextMenus();
+    if (!editingMessageId) return;
+    window._forwardMsgData = window._editingMsgData || null;
+    openForwardPicker();
+    editingMessageId = null;
+});
+
+async function openForwardPicker() {
+    const modal = document.getElementById('forwardPickerModal');
+    const list = document.getElementById('forwardChatList');
+    const search = document.getElementById('forwardSearchInput');
+    if (!modal || !list) return;
+    modal.style.display = 'flex';
+    list.innerHTML = '<div style="text-align:center;padding:20px;opacity:0.5;">Загрузка...</div>';
+    const chatsSnap = await getDocs(collection(db, 'chats'));
+    const myChats = [];
+    chatsSnap.forEach(d => {
+        const c = { id: d.id, ...d.data() };
+        if (c.members && c.members.some(m => m.uid === currentUser.uid)) myChats.push(c);
+    });
+    myChats.sort((a, b) => (b.lastMessageTime?.toMillis?.() || 0) - (a.lastMessageTime?.toMillis?.() || 0));
+    function renderForwardList(filter) {
+        list.innerHTML = '';
+        const lf = (filter || '').toLowerCase();
+        for (const chat of myChats) {
+            const other = chat.members?.find(m => m.uid !== currentUser.uid);
+            const name = other?.name || other?.username || chat.name || 'Чат';
+            if (lf && !name.toLowerCase().includes(lf)) continue;
+            const div = document.createElement('div');
+            div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;cursor:pointer;transition:background 0.15s;';
+            div.innerHTML = `<div style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:700;">${escape(name[0] || '?')}</div><div style="flex:1;font-weight:600;font-size:15px;">${escape(name)}</div><i class="fas fa-share" style="color:var(--accent);font-size:14px;"></i>`;
+            div.onmouseenter = () => div.style.background = 'rgba(255,255,255,0.06)';
+            div.onmouseleave = () => div.style.background = 'transparent';
+            div.onclick = () => forwardToChat(chat.id);
+            list.appendChild(div);
+        }
+        if (list.children.length === 0) list.innerHTML = '<div style="text-align:center;padding:20px;opacity:0.5;">Нет чатов</div>';
+    }
+    renderForwardList('');
+    search.value = '';
+    search.oninput = () => renderForwardList(search.value);
+}
+
+async function forwardToChat(targetChatId) {
+    const modal = document.getElementById('forwardPickerModal');
+    if (modal) modal.style.display = 'none';
+    const msgData = window._forwardMsgData;
+    if (!msgData) { showDynamicIsland('Нет сообщения для пересылки', 'error'); return; }
+    const fwdData = {
+        chatId: targetChatId,
+        type: msgData.type || 'text',
+        senderId: currentUser.uid,
+        senderName: currentUser.name,
+        timestamp: serverTimestamp(),
+        _localTime: Date.now(),
+        read: false,
+        forwardedFrom: msgData.senderName || msgData.forwardedFrom || 'Неизвестно',
+    };
+    if (msgData.type === 'text') {
+        fwdData.text = msgData.text || '';
+    } else if (msgData.type === 'image' || msgData.type === 'video' || msgData.type === 'voice' || msgData.type === 'circle' || msgData.type === 'file') {
+        fwdData.content = msgData.content || '';
+        if (msgData.fileName) fwdData.fileName = msgData.fileName;
+    } else {
+        fwdData.text = msgData.text || '';
+    }
+    await addDoc(collection(db, 'messages'), fwdData);
+    await updateDoc(doc(db, 'chats', targetChatId), { lastMessage: msgData.type === 'text' ? msgData.text : `[${msgData.type}]`, lastMessageTime: serverTimestamp() });
+    showDynamicIsland('Переслано', 'success');
+    window._forwardMsgData = null;
+}
+
+document.getElementById('btnCancelForward')?.addEventListener('click', () => {
+    document.getElementById('forwardPickerModal').style.display = 'none';
+    window._forwardMsgData = null;
+});
+
+document.getElementById('btnMsgCopy')?.addEventListener('click', () => {
+    hideAllContextMenus();
+    if (!editingMessageId) return;
+    const msgEl = document.querySelector(`[data-msg-id="${editingMessageId}"]`);
+    const bubble = msgEl?.querySelector('.message-text');
+    const text = bubble ? bubble.textContent : '';
+    if (text && navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => showDynamicIsland('Скопировано', 'success'));
+    }
+    editingMessageId = null;
+});
+
+document.getElementById('btnMsgReact')?.addEventListener('click', () => {
+    hideAllContextMenus();
+    if (!editingMessageId) return;
+    showReactionPicker(editingMessageId, window.innerWidth / 2 - 100, window.innerHeight / 2);
+    editingMessageId = null;
+});
+
 document.getElementById('btnMenuPin')?.addEventListener('click', () => {
     if (contextMenuChatId) {
         togglePinChat(contextMenuChatId);
@@ -1528,6 +1687,50 @@ document.addEventListener('click', (e) => {
     if (!e.target.closest('.context-menu') && !e.target.closest('.message-bubble') && !e.target.closest('.chat-card')) {
         hideAllContextMenus();
     }
+    if (!e.target.closest('#msgActionBar') && !e.target.closest('.message-bubble')) {
+        const bar = document.getElementById('msgActionBar');
+        if (bar) bar.style.display = 'none';
+    }
+});
+
+// ========== ACTION BAR BUTTONS ==========
+document.querySelectorAll('#msgActionBar .action-bar-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const bar = document.getElementById('msgActionBar');
+        const action = btn.dataset.action;
+        const msgId = bar?.dataset.msgId;
+        if (!msgId) return;
+        const msgData = window._editingMsgData || {};
+        editingMessageId = msgId;
+        if (action === 'reply') {
+            const msgEl = document.querySelector(`[data-msg-id="${msgId}"]`);
+            const bubble = msgEl?.querySelector('.message-text') || msgEl?.querySelector('.msg-emoji-only');
+            const replyText = bubble ? bubble.textContent : (msgData.text || '');
+            const senderName = msgData.senderName || '';
+            const replyBar = document.getElementById('replyBar') || document.createElement('div');
+            replyBar.id = 'replyBar';
+            replyBar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--card);border-left:3px solid var(--accent);border-radius:8px;margin:0 12px 4px;font-size:13px;color:var(--text-secondary);';
+            replyBar.innerHTML = `<i class="fas fa-reply" style="color:var(--accent);"></i><div style="flex:1;overflow:hidden;"><div style="font-size:11px;font-weight:600;color:var(--accent);">${escape(senderName)}</div><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escape(replyText).substring(0, 60)}</div></div><i class="fas fa-times" style="cursor:pointer;opacity:0.5;" onclick="this.closest('#replyBar').remove();window._replyToMsgId=null;window._replyToText=null;window._replyToSenderName=null;"></i>`;
+            const inputBar = document.querySelector('.chat-input-bar');
+            if (inputBar && !document.getElementById('replyBar')) inputBar.parentNode.insertBefore(replyBar, inputBar);
+            window._replyToMsgId = msgId;
+            window._replyToText = replyText;
+            window._replyToSenderName = senderName;
+        } else if (action === 'forward') {
+            window._forwardMsgData = msgData;
+            openForwardPicker();
+        } else if (action === 'copy') {
+            const text = msgData.text || '';
+            if (text && navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(() => showDynamicIsland('Скопировано', 'success'));
+            }
+        } else if (action === 'react') {
+            showReactionPicker(msgId, window.innerWidth / 2 - 100, window.innerHeight / 2);
+        }
+        bar.style.display = 'none';
+        editingMessageId = null;
+    });
 });
 
 const closeSettings = document.getElementById('closeSettings');
@@ -1558,10 +1761,15 @@ if (videoCallBtn) {
 
 // Toggle call buttons on header name click
 document.getElementById('chatHeaderInfo')?.addEventListener('click', (e) => {
-    if (e.target.closest('.hdr-action-btn')) return;
     if (!currentChatOtherId) return;
     const actions = document.getElementById('chatHeaderActions');
     if (actions) actions.classList.toggle('open');
+});
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.hdr-capsule') && !e.target.closest('.hdr-actions')) {
+        const actions = document.getElementById('chatHeaderActions');
+        if (actions) actions.classList.remove('open');
+    }
 });
 
 document.getElementById('endCallBtn')?.addEventListener('click', stopCall);
@@ -1666,9 +1874,12 @@ if (btnStep1) {
         try {
             const users = await getDocs(query(collection(db, "users"), where("username", "==", username)));
             if (users.empty) {
-                showScreen(2); // Переход к регистрации
+                showScreen(2);
             } else {
-                showScreen(1); // Переход к паролю
+                const ud = users.docs[0].data();
+                const helloH = document.getElementById('helloHeader');
+                if (helloH) helloH.textContent = `Привет, ${ud.name || username}!`;
+                showScreen(1);
             }
         } catch(e) { showDynamicIsland('Ошибка подключения', 'error'); }
     });
@@ -1680,7 +1891,6 @@ if (btnStep2) {
         const pass = document.getElementById('passInput')?.value;
         if (!pass) { showDynamicIsland('Введите пароль', 'error'); return; }
         
-        // Ensure pendingUsername is valid
         if (!pendingUsername) { showDynamicIsland('Введите username на первом шаге', 'error'); return; }
 
         try {
@@ -1688,14 +1898,21 @@ if (btnStep2) {
             if (users.empty) { showDynamicIsland('Пользователь не найден', 'error'); return; }
             
             const userData = users.docs[0].data();
-            // Use the stored email or construct one as fallback
-            const email = userData.email || `${pendingUsername.replace('@', '').replace(/[^a-z0-9]/gi, '')}_${userData.uid.substring(0,8)}@sparkapp.com`;
+            let email = userData.email;
+            
+            if (!email) {
+                const clean = pendingUsername.replace('@', '').replace(/[^a-z0-9]/gi, '');
+                email = `${clean}_${userData.uid}@sparkapp.com`;
+            }
             
             await signInWithEmailAndPassword(auth, email, pass);
-            // On success, onAuthStateChanged will handle the rest.
         } catch(e) { 
             console.error("Auth Error:", e);
-            showDynamicIsland('Неверный пароль или ошибка входа', 'error'); 
+            if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
+                showDynamicIsland('Неверный пароль', 'error');
+            } else {
+                showDynamicIsland('Ошибка входа: ' + (e.message || e.code), 'error');
+            }
         }
     });
 }
@@ -1761,13 +1978,19 @@ document.getElementById('tab-chats-btn')?.addEventListener('click', (e) => switc
 document.getElementById('tab-settings-btn')?.addEventListener('click', (e) => switchTab('settings', e.currentTarget));
 document.getElementById('btn-profile-edit')?.addEventListener('click', () => openPanel('profile'));
 document.getElementById('btn-theme-edit')?.addEventListener('click', () => openPanel('appearance'));
-document.getElementById('btn-lang-edit')?.addEventListener('click', () => openPanel('language'));
+document.getElementById('btn-lang-edit')?.addEventListener('click', () => {
+    const autoTranslateToggle = document.getElementById('autoTranslateToggle');
+    if (autoTranslateToggle) {
+        autoTranslateToggle.checked = localStorage.getItem('spark-autoTranslate') === 'on';
+    }
+    openPanel('language');
+});
 document.getElementById('btn-security-edit')?.addEventListener('click', () => openPanel('security'));
 document.getElementById('btn-storage-edit')?.addEventListener('click', () => openPanel('storage'));
 document.getElementById('btn-devices-edit')?.addEventListener('click', () => { loadDevices(); openPanel('devices'); });
 document.getElementById('btn-premium-edit')?.addEventListener('click', () => { loadPremiumStatus(); openPanel('premium'); });
 document.getElementById('btn-admin-premium-edit')?.addEventListener('click', () => { loadAdminReceiptsList(); loadAdminPremiumList(); openPanel('adminPremium'); });
-document.getElementById('btn-custom-edit')?.addEventListener('click', () => { loadCustomSettings(); openPanel('custom'); });
+document.getElementById('btn-custom-edit')?.addEventListener('click', () => openPanel('language'));
 
 // HAMBURGER MENU
 function openHamburgerDrawer() {
@@ -1797,21 +2020,24 @@ document.querySelectorAll('.drawer-item').forEach(item => {
         if (e.target.closest('.ios-switch')) return;
         const action = item.dataset.action;
         closeHamburger();
-        if (action === 'profile') openPanel('profile');
+        if (action === 'chats') {
+            switchTab('chats');
+        }
+        else if (action === 'profile') openPanel('profile');
         else if (action === 'settings') {
-            switchTab('settings', document.getElementById('tab-settings-btn'));
+            switchTab('settings');
         }
         else if (action === 'create-group' || action === 'create-channel') {
             document.getElementById('createChannelModal')?.classList.add('active');
         }
         else if (action === 'contacts') {
-            switchTab('chats', document.getElementById('tab-chats-btn'));
+            switchTab('chats');
         }
         else if (action === 'calls') {
             openPanel('devices');
         }
         else if (action === 'favorites') {
-            switchTab('chats', document.getElementById('tab-chats-btn'));
+            switchTab('chats');
         }
         else if (action === 'wallet') {
             openPanel('premium');
@@ -1979,11 +2205,11 @@ function openChannel(id, name, channelData) {
     
     // Hide status for channels
     const statusEl = document.getElementById('chatTargetStatus');
-    if (statusEl) statusEl.textContent = channelData.type === 'channel' ? '📢 Канал' : '👥 Группа';
+    if (statusEl) statusEl.textContent = channelData.type === 'channel' ? 'Канал' : 'Группа';
     
     // Hide call buttons for channels
     const actions = document.getElementById('chatHeaderActions');
-    if (actions) actions.style.display = 'none';
+    if (actions) { actions.classList.remove('open'); actions.style.display = 'none'; }
     
     // Check if user can write
     const isOwner = channelData.ownerId === currentUser.uid;
@@ -2045,7 +2271,6 @@ function openChannel(id, name, channelData) {
                     if (emojiOnly) content = `<div class="msg-emoji-only">${displayText}</div>`;
                     else {
                         content = `<div class="message-text" data-msg-text="${escape(msg.text)}">${displayText}</div>`;
-                        content += `<div class="msg-translate-btn" onclick="event.stopPropagation(); window._translateMsg('${msg.id}', this.parentElement.querySelector('.message-text').dataset.msgText)" style="font-size:11px;color:var(--accent);cursor:pointer;margin-top:4px;opacity:0.7;">🌐 Перевести</div>`;
                     }
                     if (msg.edited) content += `<span class="edited-badge"> ${t('edited')}</span>`;
                 }
@@ -2056,7 +2281,17 @@ function openChannel(id, name, channelData) {
                 if (isMy && msg.type !== 'system') bubble.classList.add('clickable');
                 
                 const senderLabel = !isMy && channelData.type === 'channel' ? `<div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px;">${escape(msg.senderName || '')}</div>` : '';
-                bubble.innerHTML = `<div>${senderLabel}${content}</div><div class="message-time">${msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || ''}</div>`;
+                let replyHtml = '';
+                if (msg.replyTo) {
+                    const replySnippet = msg.replyToText ? escape(msg.replyToText).substring(0, 80) : '';
+                    const replySender = msg.replyToSenderName ? escape(msg.replyToSenderName) : '';
+                    replyHtml = `<div class="reply-quote" style="border-left:3px solid var(--accent);padding:4px 10px;margin-bottom:6px;border-radius:4px;background:rgba(108,92,231,0.08);font-size:12px;"><div style="font-weight:600;color:var(--accent);font-size:11px;">${replySender}</div><div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">${replySnippet}</div></div>`;
+                }
+                let forwardHtml = '';
+                if (msg.forwardedFrom) {
+                    forwardHtml = `<div style="font-size:11px;color:var(--accent);font-weight:600;margin-bottom:4px;"><i class="fas fa-share" style="margin-right:4px;font-size:10px;"></i>Переслано от ${escape(msg.forwardedFrom)}</div>`;
+                }
+                bubble.innerHTML = `<div>${senderLabel}${forwardHtml}${replyHtml}${content}</div><div class="message-time">${msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || ''}</div>`;
                 
                 if (msg.type === 'circle') initCirclePlayer(bubble);
                 
@@ -2065,10 +2300,33 @@ function openChannel(id, name, channelData) {
                         e.stopPropagation();
                         const msgMenu = document.getElementById('messageContextMenu');
                         const editBtn = document.getElementById('btnMsgEdit');
-                        if (editBtn) editBtn.style.display = msg.type === 'text' ? 'flex' : 'none';
+                        if (editBtn) editBtn.style.display = msg.type === 'text' && isMy ? 'flex' : 'none';
                         editingMessageId = msg.id;
                         window._editingMsgText = msg.text || '';
+                        window._editingMsgData = msg;
                         showContextMenu(msgMenu, e.clientX, e.clientY);
+                    });
+                }
+                if (!isMy && msg.type !== 'system' && msg.type !== 'circle') {
+                    bubble.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const bar = document.getElementById('msgActionBar');
+                        if (!bar) return;
+                        bar.style.display = 'flex';
+                        const bw = 280, bh = 44;
+                        let left = Math.max(10, Math.min(e.clientX - bw/2, window.innerWidth - bw - 10));
+                        let top = e.clientY - bh - 12;
+                        if (top < 10) top = e.clientY + 12;
+                        bar.style.left = left + 'px';
+                        bar.style.top = Math.max(10, top) + 'px';
+                        bar.dataset.msgId = msg.id;
+                        bar.dataset.msgType = msg.type || 'text';
+                        bar.dataset.msgText = msg.text || '';
+                        bar.dataset.msgContent = msg.content || '';
+                        bar.dataset.msgSenderName = msg.senderName || '';
+                        bar.dataset.msgFileName = msg.fileName || '';
+                        editingMessageId = msg.id;
+                        window._editingMsgData = msg;
                     });
                 }
                 if (msg.type === 'circle') {
@@ -2101,14 +2359,14 @@ async function openChannelInfo(channelData) {
     
     document.getElementById('channelInfoTitle').textContent = channelData.type === 'channel' ? 'Инфо канала' : 'Инфо группы';
     document.getElementById('channelInfoName').textContent = channelData.name || '';
-    document.getElementById('channelInfoType').textContent = channelData.type === 'channel' ? '📢 Канал' : '👥 Группа';
+    document.getElementById('channelInfoType').textContent = channelData.type === 'channel' ? 'Канал' : 'Группа';
     
     renderAvatar(document.getElementById('channelInfoAvatar'), { avatarUrl: channelData.avatarUrl, name: channelData.name });
     
     // Find owner name
     const ownerMember = channelData.members?.find(m => m.role === 'owner');
     const ownerName = ownerMember?.name || 'Неизвестно';
-    document.getElementById('channelInfoOwner').textContent = `👑 Владелец: ${ownerName}`;
+    document.getElementById('channelInfoOwner').textContent = `Владелец: ${ownerName}`;
     
     // Render members
     const membersContainer = document.getElementById('channelInfoMembers');
@@ -2119,7 +2377,7 @@ async function openChannelInfo(channelData) {
             const memberData = memberDoc.exists() ? memberDoc.data() : {};
             const div = document.createElement('div');
             div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05);';
-            const roleBadge = member.role === 'owner' ? '<span style="color:var(--accent);font-size:12px;margin-left:6px;">👑 Владелец</span>' : '';
+            const roleBadge = member.role === 'owner' ? '<span style="color:var(--accent);font-size:12px;margin-left:6px;">Владелец</span>' : '';
             div.innerHTML = `<div class="avatar" style="width:40px;height:40px;font-size:16px;"></div>
                 <div><div style="color:var(--text);font-weight:600;">${escape(member.name || member.username || member.uid)}</div>${roleBadge}</div>`;
             renderAvatar(div.querySelector('.avatar'), { avatarUrl: memberData.avatarUrl, name: member.name });
@@ -2271,7 +2529,7 @@ function generateQR(text, canvas) {
     ctx.font = 'bold 20px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('⚡', size/2, size/2);
+    ctx.fillText('★', size/2, size/2);
 }
 
 document.getElementById('btnShowQR')?.addEventListener('click', () => {
@@ -2906,7 +3164,7 @@ document.getElementById('btnActivatePremium')?.addEventListener('click', async (
             createdAt: new Date().toISOString()
         });
         
-        if (msg) { msg.style.display = 'block'; msg.textContent = '🔍 AI проверяет квитанцию...'; msg.style.color = '#6c5ce7'; }
+        if (msg) { msg.style.display = 'block'; msg.textContent = 'AI проверяет квитанцию...'; msg.style.color = '#6c5ce7'; }
         showDynamicIsland('AI проверяет квитанцию...', 'info');
         
         // Auto AI verification
@@ -2954,8 +3212,8 @@ async function autoVerifyReceipt(receiptId, receiptUrl, plan) {
             await updateDoc(doc(db, "premiumReceipts", receiptId), { status: "approved", reviewedAt: new Date().toISOString(), reviewedBy: 'ai-bot' });
             await updateDoc(doc(db, "users", currentUser.uid), { premium: true, premiumActivatedAt: new Date().toISOString(), premiumActivatedBy: 'ai-bot' });
             currentUser.premium = true;
-            if (msg) { msg.innerHTML = '<span style="color:#2ecc71;">✅ Premium активирован! (AI подтвердил)</span>'; }
-            showDynamicIsland('⚡ Premium активирован! AI подтвердил квитанцию.', 'success');
+            if (msg) { msg.innerHTML = '<span style="color:#2ecc71;">Premium активирован! (AI подтвердил)</span>'; }
+            showDynamicIsland('Premium активирован! AI подтвердил квитанцию.', 'success');
             const uploadBtn = document.getElementById('btnUploadReceipt');
             if (uploadBtn) uploadBtn.style.display = 'none';
             const activateBtn = document.getElementById('btnActivatePremium');
@@ -2966,7 +3224,7 @@ async function autoVerifyReceipt(receiptId, receiptUrl, plan) {
             if (!paymentMatch && !amountMatch) reason = 'Платёжные данные и сумма не совпадают';
             else if (!paymentMatch) reason = 'Не найден телефон/получатель Алексей';
             else if (!amountMatch) reason = 'Сумма не совпадает с тарифом';
-            if (msg) { msg.innerHTML = `<span style="color:#ff3b30;">❌ Отклонено: ${reason}</span>`; }
+            if (msg) { msg.innerHTML = `<span style="color:#ff3b30;">✕ Отклонено: ${reason}</span>`; }
             showDynamicIsland('Квитанция отклонена: ' + reason, 'error');
             const activateBtn = document.getElementById('btnActivatePremium');
             if (activateBtn) { activateBtn.textContent = 'Отправить на проверку'; activateBtn.disabled = false; activateBtn.style.opacity = ''; }
@@ -2975,7 +3233,7 @@ async function autoVerifyReceipt(receiptId, receiptUrl, plan) {
         }
     } catch (e) {
         console.error('AI verify error:', e);
-        if (msg) { msg.innerHTML = '<span style="color:#f39c12;">⚠ Ошибка AI. Попробуйте позже.</span>'; }
+        if (msg) { msg.innerHTML = '<span style="color:#f39c12;">! Ошибка AI. Попробуйте позже.</span>'; }
         const activateBtn = document.getElementById('btnActivatePremium');
         if (activateBtn) { activateBtn.textContent = 'Отправить на проверку'; activateBtn.disabled = false; activateBtn.style.opacity = ''; }
         const uploadBtn = document.getElementById('btnUploadReceipt');
@@ -3233,7 +3491,7 @@ async function updateFaceIdStatus() {
         const statusEl = document.getElementById('faceIdStatus');
         if (statusEl) {
             if (userDoc.data()?.faceIdEnabled) {
-                statusEl.textContent = '✅ Face ID привязан';
+                statusEl.textContent = 'Face ID привязан';
                 statusEl.style.display = 'block';
             } else {
                 statusEl.textContent = '';
@@ -3250,7 +3508,7 @@ window._translateMsg = async function(msgId, text) {
     const bubble = document.querySelector(`[data-msg-id="${msgId}"] .message-text`);
     if (!bubble) return;
     bubble.style.opacity = '0.5';
-    bubble.textContent = '🌐 Перевод...';
+    bubble.textContent = 'Перевод...';
     const translated = await translateText(text);
     bubble.textContent = text;
     bubble.style.opacity = '';
@@ -3300,7 +3558,7 @@ async function translateMessageText(msgId, text) {
         const el = document.createElement('div');
         el.id = `trans-${msgId}`;
         el.style.cssText = 'font-size:12px;color:var(--text-secondary);margin-top:6px;padding-top:6px;border-top:1px solid var(--border);font-style:italic;';
-        el.textContent = '🌐 ' + translated;
+        el.textContent = '' + translated;
         bubble.appendChild(el);
     }
 }
@@ -3353,11 +3611,11 @@ document.getElementById('btnAdminPremiumSearch')?.addEventListener('click', asyn
                 div.innerHTML = `
                     <div style="flex:1;">
                         <div style="font-weight:600;font-size:14px;">${escape(u.name || u.username)}</div>
-                        <div style="font-size:12px;color:var(--text-secondary);">${escape(u.username || '')} ${isPrem ? '<span style="color:#6c5ce7;font-weight:700;">⚡ Premium</span>' : ''}</div>
+                        <div style="font-size:12px;color:var(--text-secondary);">${escape(u.username || '')} ${isPrem ? '<span style="color:#6c5ce7;font-weight:700;">Premium</span>' : ''}</div>
                     </div>
                     <button class="btn admin-grant-premium" data-uid="${u.uid}" data-name="${escape(u.name || u.username)}" data-action="${isPrem ? 'revoke' : 'grant'}" 
                         style="padding:8px 14px;font-size:12px;width:auto;background:${isPrem ? '#ff3b30' : '#6c5ce7'};color:#fff;">
-                        ${isPrem ? '<i class="fas fa-times"></i> Снять' : '<i class="fas fa-bolt"></i> Выдать'}
+                        ${isPrem ? '<i class="fas fa-times"></i> Снять' : '<i class="fas fa-star"></i> Выдать'}
                     </button>
                 `;
                 results.appendChild(div);
@@ -3379,7 +3637,7 @@ document.getElementById('btnAdminPremiumSearch')?.addEventListener('click', asyn
                             premiumActivatedAt: new Date().toISOString(),
                             premiumActivatedBy: currentUser.uid
                         });
-                        showDynamicIsland(`⚡ Premium выдан ${name}`, 'success');
+                        showDynamicIsland(`Premium выдан ${name}`, 'success');
                     } else {
                         await updateDoc(doc(db, "users", uid), {
                             premium: false,
@@ -3423,7 +3681,7 @@ async function loadAdminPremiumList() {
             const div = document.createElement('div');
             div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px;';
             div.innerHTML = `
-                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#6c5ce7,#a29bfe);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;flex-shrink:0;"><i class="fas fa-bolt"></i></div>
+                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#6c5ce7,#a29bfe);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;flex-shrink:0;"><i class="fas fa-star"></i></div>
                 <div style="flex:1;">
                     <div style="font-weight:600;font-size:14px;">${escape(u.name || u.username)}</div>
                     <div style="font-size:12px;color:var(--text-secondary);">${escape(u.username || '')} · Активирован ${activated}</div>
@@ -3522,8 +3780,8 @@ async function loadAdminReceiptsList() {
                     const amountMatch = expectedAmounts.some(a => text.includes(a));
                     
                     let result = `<strong>AI Результат:</strong><br>`;
-                    result += `📱 Телефон: ${phoneMatch ? '<span style="color:#2ecc71;">✓ Найден</span>' : '<span style="color:#ff3b30;">✗ Не найден</span>'}<br>`;
-                    result += `💰 Сумма: ${amountMatch ? '<span style="color:#2ecc71;">✓ Совпадает</span>' : '<span style="color:#f39c12;">⚠ Не распознана</span>'}<br>`;
+                    result += `Телефон: ${phoneMatch ? '<span style="color:#2ecc71;">✓ Найден</span>' : '<span style="color:#ff3b30;">✗ Не найден</span>'}<br>`;
+                    result += `Сумма: ${amountMatch ? '<span style="color:#2ecc71;">✓ Совпадает</span>' : '<span style="color:#f39c12;">! Не распознана</span>'}<br>`;
                     result += `<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:11px;">Текст с квитанции</summary><pre style="font-size:10px;white-space:pre-wrap;max-height:100px;overflow-y:auto;margin-top:4px;">${escape(text.substring(0, 500))}</pre></details>`;
                     if (resultEl) resultEl.innerHTML = result;
                     
@@ -3624,10 +3882,15 @@ async function loadCustomSettings() {
         const autoTranslateToggle = document.getElementById('autoTranslateToggle');
         if (autoTranslateToggle) {
             autoTranslateToggle.checked = localStorage.getItem('spark-autoTranslate') === 'on';
-            if (currentUser && !(isPremium(currentUser) || isCreator(currentUser))) {
-                autoTranslateToggle.disabled = true;
-                autoTranslateToggle.parentElement.style.opacity = '0.4';
-            }
+            autoTranslateToggle.onchange = () => {
+                if (autoTranslateToggle.checked) {
+                    localStorage.setItem('spark-autoTranslate', 'on');
+                    if (currentUser && (isPremium(currentUser) || isCreator(currentUser))) setupAutoTranslate();
+                } else {
+                    localStorage.removeItem('spark-autoTranslate');
+                    window._autoTranslateObserver = null;
+                }
+            };
         }
     } catch (e) { console.warn('Load custom error:', e); }
 }
@@ -3842,55 +4105,4 @@ document.addEventListener('pointerdown', (e) => {
     document.addEventListener('pointercancel', cancel);
 });
 
-// ========== ANIMATED SPARK CHARACTER ==========
-let sparkAnimState = 'idle';
-let sparkAnimInterval = null;
-
-function startSparkAnimation() {
-    const leftArm = document.getElementById('sparkLeftArm');
-    const rightArm = document.getElementById('sparkRightArm');
-    const leftLeg = document.getElementById('sparkLeftLeg');
-    const rightLeg = document.getElementById('sparkRightLeg');
-    const charEl = document.getElementById('sparkCharacter');
-    if (!leftArm || !charEl) return;
-
-    charEl.style.display = 'block';
-    sparkAnimState = 'wave';
-    let frame = 0;
-
-    if (sparkAnimInterval) clearInterval(sparkAnimInterval);
-    sparkAnimInterval = setInterval(() => {
-        frame++;
-        const t = frame * 0.15;
-        leftArm.setAttribute('x2', 2 + Math.sin(t * 3) * 12);
-        leftArm.setAttribute('y2', 40 + Math.cos(t * 2) * 10);
-        rightArm.setAttribute('x2', 78 + Math.cos(t * 3) * 12);
-        rightArm.setAttribute('y2', 40 + Math.sin(t * 2) * 10);
-        leftLeg.setAttribute('x2', 28 + Math.sin(t * 2) * 6);
-        rightLeg.setAttribute('x2', 52 + Math.cos(t * 2) * 6);
-
-        if (sparkAnimState === 'wave' && frame > 40) {
-            sparkAnimState = 'idle';
-            leftArm.setAttribute('x2', '2'); leftArm.setAttribute('y2', '40');
-            rightArm.setAttribute('x2', '78'); rightArm.setAttribute('y2', '40');
-            leftLeg.setAttribute('x2', '28'); rightLeg.setAttribute('x2', '52');
-            setTimeout(() => { charEl.style.display = 'none'; }, 2000);
-            clearInterval(sparkAnimInterval);
-        }
-    }, 50);
-}
-
-function triggerSparkAction(action) {
-    const charEl = document.getElementById('sparkCharacter');
-    if (!charEl) return;
-    startSparkAnimation();
-}
-
-window.triggerSparkAction = triggerSparkAction;
-
-// Auto-show spark character occasionally
-setInterval(() => {
-    if (currentUser && (isPremium(currentUser) || isCreator(currentUser))) {
-        if (Math.random() < 0.1) triggerSparkAction('wave');
-    }
-}, 60000);
+// SPARK v2.0.2

@@ -17,7 +17,7 @@ ios/
 *.zip
 *.txt
 *.apk
-*.exe
+downloads/
 package.json
 package-lock.json
 .firebase*

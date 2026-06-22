@@ -32,12 +32,26 @@
       "build-output.txt",
       "installer.nsh",
       "*.exe",
-      "*.apk"
+      "*.apk",
+      "downloads/**"
+    ],
+    "headers": [
+      {
+        "source": "downloads/**",
+        "headers": [
+          { "key": "Content-Type", "value": "application/octet-stream" },
+          { "key": "Content-Disposition", "value": "attachment" }
+        ]
+      }
     ],
     "rewrites": [
       {
         "source": "/download.html",
         "destination": "/download.html"
+      },
+      {
+        "source": "/downloads/**",
+        "destination": "/downloads/**"
       },
       {
         "source": "**",

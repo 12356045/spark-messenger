@@ -9,7 +9,7 @@ try { autoUpdater = require('electron-updater').autoUpdater; } catch(e) {}
 
 const spark = new SparkApp({
     name: 'SPARK',
-    version: '2.0.1',
+    version: '2.0.2',
     config: {
         windowBounds: { width: 1200, height: 800 },
         darkMode: true,
@@ -249,7 +249,7 @@ spark.whenReady().then(async () => {
     createTray();
     createAppMenu();
 
-    console.log('[SPARK Engine] v2.0.1 started');
+    console.log('[SPARK Engine] v2.0.2 started');
     console.log('[SPARK Engine] Platform:', process.platform);
     console.log('[SPARK Engine] Node:', process.versions.node);
     console.log('[SPARK Engine] Electron:', process.versions.electron);

@@ -236,11 +236,11 @@ export function isNotificationsEnabled() {
 export function getMessagePreview(msg) {
     if (!msg) return 'Новое сообщение';
     if (msg.type === 'text') return msg.text || 'Сообщение';
-    if (msg.type === 'voice') return '🎙️ Голосовое';
-    if (msg.type === 'circle') return '📹 Кружок';
-    if (msg.type === 'image') return '📷 Фото';
-    if (msg.type === 'video') return '🎬 Видео';
-    if (msg.type === 'file') return `📎 ${msg.fileName || 'Файл'}`;
+    if (msg.type === 'voice') return 'Голосовое';
+    if (msg.type === 'circle') return 'Кружок';
+    if (msg.type === 'image') return 'Фото';
+    if (msg.type === 'video') return 'Видео';
+    if (msg.type === 'file') return `${msg.fileName || 'Файл'}`;
     return 'Новое сообщение';
 }
 

@@ -7,8 +7,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>SPARK v2.0.1</title>
+    <title>SPARK v2.0.2</title>
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -113,15 +115,15 @@
         }
         .splash-content { position: relative; display: flex; align-items: center; justify-content: center; gap: 20px; width: auto; min-width: 360px; min-height: 140px; }
         #welcomeTitle { font-size: 46px; font-weight: 900; letter-spacing: 9px; opacity: 0; color: #fff; transform: translateX(-18px); animation: titleSlide 2.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        #splashBolt {
+        #splashStar {
             font-size: 72px; color: var(--accent);
             position: relative; display: inline-block; transform-origin: center center;
-            animation: boltLaunch 3.2s cubic-bezier(0.16, 1, 0.3, 1) forwards, boltPulse 1.6s ease-in-out 2.8s 0.6s infinite alternate;
+            animation: starLaunch 3.2s cubic-bezier(0.16, 1, 0.3, 1) forwards, starPulse 1.6s ease-in-out 2.8s 0.6s infinite alternate;
             filter: drop-shadow(0 0 35px rgba(255,255,255,0.4));
             will-change: transform, opacity;
         }
 
-        @keyframes boltLaunch {
+        @keyframes starLaunch {
             0% { transform: translate3d(-320px, -220px, 0) scale3d(0.35, 0.35, 1) rotate(-45deg); opacity: 0; }
             18% { transform: translate3d(-90px, -140px, 0) scale3d(0.75, 0.75, 1) rotate(-12deg); opacity: 0.9; }
             36% { transform: translate3d(0px, -60px, 0) scale3d(1.18, 1.18, 1) rotate(6deg); opacity: 1; }
@@ -130,7 +132,7 @@
             100% { transform: translate3d(180px, 60px, 0) scale3d(0.92, 0.92, 1) rotate(270deg); opacity: 0.92; }
         }
 
-        @keyframes boltPulse {
+        @keyframes starPulse {
             0% { transform: translate3d(180px, 60px, 0) scale3d(0.92, 0.92, 1); opacity: 0.92; }
             50% { transform: translate3d(180px, 60px, 0) scale3d(1.04, 1.04, 1); opacity: 1; }
             100% { transform: translate3d(180px, 60px, 0) scale3d(0.98, 0.98, 1); opacity: 0.9; }
@@ -736,7 +738,7 @@
     <div id="splash" onclick="this.style.display='none'">
         <div class="splash-content">
             <div id="welcomeTitle">SPARK</div>
-            <i class="fas fa-bolt" id="splashBolt"></i>
+            <i class="fas fa-star" id="splashStar"></i>
         </div>
         <div id="swipeHint">НАЖМИТЕ ДЛЯ ВХОДА</div>
     </div>
@@ -902,7 +904,7 @@
                 </div>
                 <div class="settings-list" style="margin-top:12px;">
                     <div class="settings-item" id="btn-premium-edit" style="color:var(--accent);">
-                        <i class="fas fa-bolt" style="width:24px;color:var(--accent);"></i>
+                        <i class="fas fa-star" style="width:24px;color:var(--accent);"></i>
                         <span style="font-weight:600;">SPARK Premium</span>
                         <i class="fas fa-chevron-right" style="margin-left:auto;color:var(--text-secondary);font-size:12px;"></i>
                     </div>
@@ -1083,7 +1085,7 @@
             <div class="avatar" id="modalTargetAvatar" style="width:100px; height:100px; margin: 0 auto 20px; font-size:40px; border:none;"></div>
             <h2 id="modalTargetName" style="margin-bottom:6px;">Имя</h2>
             <p id="modalTargetUser" style="color:var(--text-secondary); margin-bottom:16px;">@username</p>
-            <div id="modalCreatorBadge" style="display:none;background:linear-gradient(135deg,#fff,#ccc);color:#000;font-size:12px;font-weight:800;padding:4px 12px;border-radius:20px;margin:0 auto 10px;width:fit-content;">⚡ Создатель SPARK</div>
+            <div id="modalCreatorBadge" style="display:none;background:linear-gradient(135deg,#fff,#ccc);color:#000;font-size:12px;font-weight:800;padding:4px 12px;border-radius:20px;margin:0 auto 10px;width:fit-content;">Создатель SPARK</div>
             <div style="text-align:left; display:flex; flex-direction:column; gap:10px; border-top: 1px solid var(--border); padding-top:16px;">
                 <div><small style="color:var(--text-secondary)" id="label-about">О себе</small><div id="modalTargetBio" style="font-size:15px; margin-top:2px;">Информация отсутствует</div></div>
                 <div><small style="color:var(--text-secondary)" id="label-birthday">Дата рождения</small><div id="modalTargetBirth" style="font-size:15px; margin-top:2px;">Не указана</div></div>
@@ -1139,6 +1141,15 @@
         <div class="menu-item danger" id="btnMsgDelete"><span data-i18n="deleteMsg">Удалить</span> <i class="fas fa-trash-alt"></i></div>
     </div>
 
+    <!-- ПАНЕЛЬ ДЕЙСТВИЙ НАД СООБЩЕНИЕМ ( floating ) -->
+    <div id="msgActionBar" style="display:none;position:fixed;z-index:12000;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:6px 8px;gap:2px;flex-direction:row;box-shadow:0 4px 20px rgba(0,0,0,0.35);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);">
+        <button class="action-bar-btn" data-action="reply" title="Ответить" style="font-size:18px;background:none;border:none;cursor:pointer;padding:8px 10px;border-radius:10px;color:var(--text);transition:background 0.15s;"><i class="fas fa-reply"></i></button>
+        <button class="action-bar-btn" data-action="forward" title="Переслать" style="font-size:18px;background:none;border:none;cursor:pointer;padding:8px 10px;border-radius:10px;color:var(--text);transition:background 0.15s;"><i class="fas fa-share"></i></button>
+        <button class="action-bar-btn" data-action="copy" title="Копировать" style="font-size:18px;background:none;border:none;cursor:pointer;padding:8px 10px;border-radius:10px;color:var(--text);transition:background 0.15s;"><i class="fas fa-copy"></i></button>
+        <button class="action-bar-btn" data-action="react" title="Реакция" style="font-size:18px;background:none;border:none;cursor:pointer;padding:8px 10px;border-radius:10px;color:var(--text);transition:background 0.15s;"><i class="fas fa-smile"></i></button>
+    </div>
+    <style>.action-bar-btn:hover{background:rgba(255,255,255,0.08)!important;}</style>
+
     <!-- РЕДАКТИРОВАНИЕ СООБЩЕНИЯ -->
     <div class="edit-modal-overlay" id="editMessageModal">
         <div class="edit-modal-card">
@@ -1151,6 +1162,16 @@
         </div>
     </div>
 
+    <!-- ВЫБОР ЧАТА ДЛЯ ПЕРЕСЫЛКИ -->
+    <div class="edit-modal-overlay" id="forwardPickerModal" style="display:none;">
+        <div class="edit-modal-card" style="max-height:70vh;overflow:hidden;display:flex;flex-direction:column;">
+            <h3 style="margin-bottom:14px;">Переслать в...</h3>
+            <input type="text" id="forwardSearchInput" class="input" placeholder="Поиск..." style="margin-bottom:12px;">
+            <div id="forwardChatList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
+            <button class="btn" style="background:var(--card);color:var(--text);width:100%;margin-top:12px;" id="btnCancelForward">Отмена</button>
+        </div>
+    </div>
+
     <input type="file" id="mediaFileInput" hidden>
 
     <!-- МОДАЛКА СОЗДАНИЯ КАНАЛА/ГРУППЫ -->
@@ -1159,8 +1180,8 @@
             <h3 style="margin-bottom:14px;">Новый канал/группа</h3>
             <input type="text" id="channelNameInput" class="input" placeholder="Название" style="margin-bottom:10px;">
             <div style="display:flex;gap:8px;margin-bottom:14px;">
-                <button class="btn" id="channelTypeChannel" style="flex:1;background:var(--accent);color:var(--bg);">📢 Канал</button>
-                <button class="btn" id="channelTypeGroup" style="flex:1;background:var(--card);color:var(--text);">👥 Группа</button>
+                <button class="btn" id="channelTypeChannel" style="flex:1;background:var(--accent);color:var(--bg);">Канал</button>
+                <button class="btn" id="channelTypeGroup" style="flex:1;background:var(--card);color:var(--text);">Группа</button>
             </div>
             <p style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">Участники:</p>
             <div id="channelMembersPicker" style="max-height:200px;overflow-y:auto;margin-bottom:14px;"></div>
@@ -1225,7 +1246,7 @@
     <div id="panelPremium" class="full-pane">
         <div class="panel-nav"><i class="fas fa-chevron-left" id="closePremiumPanelBtn"></i>SPARK Premium</div>
         <div style="text-align:center;padding:30px 20px 10px;">
-            <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#6c5ce7,#a29bfe);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:36px;color:#fff;"><i class="fas fa-bolt"></i></div>
+            <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#6c5ce7,#a29bfe);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:36px;color:#fff;"><i class="fas fa-star"></i></div>
             <h2 style="margin-bottom:8px;">SPARK Premium</h2>
             <p id="premiumStatusText" style="color:var(--text-secondary);font-size:14px;margin-bottom:24px;">Не активирован</p>
         </div>
@@ -1238,8 +1259,8 @@
                     <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-users" style="color:var(--accent);width:20px;"></i><span>Безлимитные группы</span></div>
                     <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-dot-circle" style="color:var(--accent);width:20px;"></i><span>Кружки до 10 минут</span></div>
                     <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-language" style="color:var(--accent);width:20px;"></i><span>Авто-перевод сообщений</span></div>
-                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-robot" style="color:var(--accent);width:20px;"></i><span>🤖 AI-бот переводчик</span></div>
-                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-bolt" style="color:var(--accent);width:20px;"></i><span>⚡ Значок рядом с именем</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-robot" style="color:var(--accent);width:20px;"></i><span>AI-бот переводчик</span></div>
+                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-star" style="color:var(--accent);width:20px;"></i><span>★ Значок рядом с именем</span></div>
                 </div>
             </div>
             <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
@@ -1302,7 +1323,7 @@
     <!-- REACTION PICKER -->
     <div id="reactionPicker" style="display:none;position:fixed;z-index:12000;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:4px 6px;gap:2px;flex-direction:row;box-shadow:0 4px 20px rgba(0,0,0,0.35);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);">
         <button class="reaction-emoji" data-reaction="👍" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">👍</button>
-        <button class="reaction-emoji" data-reaction="❤️" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">❤️</button>
+        <button class="reaction-emoji" data-reaction="" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;"></button>
         <button class="reaction-emoji" data-reaction="😂" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">😂</button>
         <button class="reaction-emoji" data-reaction="😮" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">😮</button>
         <button class="reaction-emoji" data-reaction="😢" style="font-size:20px;background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:8px;transition:transform 0.12s;">😢</button>

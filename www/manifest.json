@@ -1,0 +1,20 @@
+{
+  "name": "SPARK",
+  "short_name": "SPARK",
+  "description": "by Ivan Laletin",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "prefer_related_applications": false,
+  "theme_color": "#667eea",
+  "background_color": "#1a0b2e",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
