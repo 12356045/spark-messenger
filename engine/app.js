@@ -123,7 +123,7 @@ class SparkApp {
         this.bus = new EventBus();
         this.config = new Config(options.config || {});
         this.lifecycle = new LifeCycle(this.bus);
-        this.version = options.version || '2.0.2';
+        this.version = options.version || '2.0.3';
         this.name = options.name || 'SparkApp';
 
         this._init();

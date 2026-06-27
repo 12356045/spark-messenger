@@ -3,7 +3,7 @@ import { db } from './firebase-config.js';
 import {
   doc, updateDoc, arrayUnion, addDoc, collection,
   query, where, getDoc, onSnapshot, deleteDoc
-} from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+} from './vendor/firebase/firebase-firestore.js';
 
 let notifUnsubscribe = null;
 

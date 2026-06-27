@@ -193,6 +193,7 @@ export function switchTab(tab, btn) {
 }
 
 export function openPanel(id) {
+    document.querySelectorAll('.full-pane.active').forEach(p => p.classList.remove('active'));
     const panelId = `panel${id.charAt(0).toUpperCase() + id.slice(1)}`;
     const panel = document.getElementById(panelId);
     if (panel) panel.classList.add('active');

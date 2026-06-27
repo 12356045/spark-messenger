@@ -19,6 +19,7 @@ const DEFAULT_WINDOW_OPTS = {
         webSecurity: false,
     },
     titleBarStyle: 'hidden',
+    titleBarOverlay: false,
     trafficLightPosition: { x: 16, y: 16 },
     roundedCorners: true,
 };

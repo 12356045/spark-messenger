@@ -6,9 +6,80 @@
     --safe-left: 0px;
     --safe-right: 0px;
     --sidebar-w: 380px;
+    --titlebar-h: 40px;
 }
 
 .pc-hide { display: none !important; }
+
+/* ========= DESKTOP TITLE BAR ========= */
+.desktop-titlebar {
+    display: none !important;
+}
+
+@media (min-width: 768px) {
+    .desktop-titlebar {
+        display: flex !important;
+        align-items: center;
+        justify-content: space-between;
+        height: var(--titlebar-h);
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+        -webkit-app-region: drag;
+        user-select: none;
+        padding: 0 4px 0 16px;
+        position: relative;
+        z-index: 100;
+    }
+}
+
+.titlebar-drag {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+.titlebar-logo {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.titlebar-logo i { color: var(--accent); font-size: 12px; }
+
+.titlebar-controls {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    -webkit-app-region: no-drag;
+    height: 100%;
+}
+
+.titlebar-btn {
+    width: 46px;
+    height: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+
+.titlebar-btn:hover {
+    background: rgba(255,255,255,0.08);
+    color: var(--text);
+}
+
+.titlebar-close:hover {
+    background: #e81123 !important;
+    color: #fff !important;
+}
 
 html, body {
     height: 100vh !important;
@@ -22,7 +93,7 @@ body {
 }
 
 /* ========= SIDEBAR ========= */
-#app {
+body.logged-in #app {
     width: var(--sidebar-w) !important;
     min-width: var(--sidebar-w) !important;
     max-width: var(--sidebar-w) !important;
@@ -36,7 +107,15 @@ body {
     background: var(--bg);
 }
 
-#app .tab-pane {
+body:not(.logged-in) #app {
+    display: none !important;
+}
+
+body:not(.logged-in) #chatView {
+    display: none !important;
+}
+
+body.logged-in #app .tab-pane {
     position: static !important;
     transform: none !important;
     overflow-y: auto !important;
@@ -45,15 +124,15 @@ body {
     border: none !important;
 }
 
-#app .footer {
+body.logged-in #app .footer {
     display: none !important;
 }
 
-#app .search-area {
+body.logged-in #app .search-area {
     padding: 10px 12px !important;
 }
 
-#app #btnHamburger {
+body.logged-in #app #btnHamburger {
     display: block !important;
 }
 
@@ -61,15 +140,15 @@ body {
     display: block !important;
 }
 
-#app #btnOpenCreateChannel {
+body.logged-in #app #btnOpenCreateChannel {
     display: none !important;
 }
 
-#app .list-container {
+body.logged-in #app .list-container {
     padding: 0 !important;
 }
 
-#app .chat-card {
+body.logged-in #app .chat-card {
     border-radius: 10px !important;
     margin: 0 8px !important;
 }
@@ -93,7 +172,7 @@ body {
 }
 
 /* ========= CHAT VIEW ========= */
-#chatView {
+body.logged-in #chatView {
     position: fixed !important;
     top: 0 !important;
     left: var(--sidebar-w) !important;
@@ -109,14 +188,14 @@ body {
     background: var(--chat-bg, var(--bg));
 }
 
-#chatView:not([style*="display: flex"]) {
+body.logged-in #chatView:not([style*="display: flex"]) {
     display: flex !important;
     visibility: hidden !important;
     pointer-events: none !important;
 }
 
-#chatView[style*="display: flex"],
-#chatView.chat-open {
+body.logged-in #chatView[style*="display: flex"],
+body.logged-in #chatView.chat-open {
     visibility: visible !important;
     pointer-events: all !important;
     animation: none !important;
@@ -143,14 +222,14 @@ body {
     max-width: none !important;
 }
 
-.hdr-actions {
-    margin-top: 0 !important;
-    flex-direction: row !important;
-    min-width: auto !important;
+.hdr-actions-discord {
+    gap: 6px !important;
 }
 
-#chatHeaderInfo:hover {
-    opacity: 0.8;
+.hdr-call-btn {
+    width: 34px !important;
+    height: 34px !important;
+    font-size: 13px !important;
 }
 
 /* Messages area — full height, no rounded corners */
@@ -226,7 +305,7 @@ body.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
 
 .reaction-badge.mine {
     border: none;
-    background: rgba(52, 120, 246, 0.2);
+    background: rgba(255, 255, 255, 0.15);
 }
 
 .reaction-count {
@@ -236,26 +315,46 @@ body.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
     margin-left: 1px;
 }
 
-/* ========= CALL OVERLAY — centered card ========= */
+/* ========= CALL OVERLAY — embedded in chat, flex child ========= */
 #callOverlay {
-    position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    right: auto !important;
-    bottom: auto !important;
-    transform: translate(-50%, -50%) !important;
-    width: 400px !important;
-    max-width: 400px !important;
-    height: auto !important;
-    max-height: 600px !important;
-    border-radius: 20px !important;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    flex-shrink: 0 !important;
+    height: 280px !important;
+}
+.call-discord-controls {
+    border-radius: 0 !important;
+    padding: 12px 24px !important;
+}
+.call-ctrl-btn {
+    width: 50px !important;
+    height: 50px !important;
+    font-size: 20px !important;
+}
+.call-ctrl-btn.end-call {
+    width: 50px !important;
+    height: 50px !important;
+    border-radius: 50% !important;
+}
+.call-ctrl-group {
+    gap: 8px !important;
+    padding: 5px !important;
 }
 
 /* ========= CONTEXT MENUS ========= */
 .context-menu {
     border-radius: 12px !important;
     box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;
+    animation: menuSlideUp 0.25s var(--spring) forwards !important;
+    transform-origin: bottom right !important;
+}
+#msgActionBar {
+    animation: menuSlideUp 0.2s var(--spring) forwards !important;
+}
+#reactionPicker {
+    animation: menuSlideUp 0.2s var(--spring) forwards !important;
 }
 
 /* ========= MOBILE FALLBACK ========= */
@@ -304,9 +403,10 @@ body.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
     .hdr-capsule small {
         font-size: 9px !important;
     }
-    .hdr-action-btn {
-        padding: 5px 10px !important;
-        font-size: 10px !important;
+    .hdr-call-btn {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 12px !important;
     }
     .messages-area {
         border-radius: 0 !important;
@@ -352,10 +452,7 @@ body.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
         height: 42px !important;
     }
     .footer {
-        bottom: calc(8px + var(--safe-bottom)) !important;
-        width: calc(100% - 20px) !important;
-        height: 52px !important;
-        border-radius: 26px !important;
+        display: flex !important;
     }
     .tab-btn {
         font-size: 10px !important;
@@ -429,16 +526,11 @@ body.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
         font-size: 14px !important;
     }
     #callOverlay {
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
-        transform: none !important;
         width: 100% !important;
         max-width: 100% !important;
-        height: 100% !important;
-        height: 100dvh !important;
+        height: 280px !important;
         border-radius: 0 !important;
+        flex-shrink: 0 !important;
     }
     .full-pane {
         left: 0 !important;
@@ -463,8 +555,7 @@ body.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
             font-size: 13px !important;
         }
         .footer {
-            height: 48px !important;
-            border-radius: 24px !important;
+            display: none !important;
         }
     }
 }

@@ -1,12 +1,66 @@
 import { openPanel, closePanel, switchTab, applySavedLanguage, applySavedWallpaper, syncProfile, applySavedTheme, initPanelHandlers, renderAvatar, t } from "./ui.js";
 import { getBlobUrlFromBase64, formatLastSeen, compressImage, detectDevice, getCameraConstraints, getSupportedVideoMimeType, isNotificationsEnabled, notifyIncomingMessage, registerAppServiceWorker, getMessagePreview, createCirclePlayerHTML, initCirclePlayer, closeCircleFullscreen, setRingProgress, formatVideoTime, CIRCLE_MAX_DURATION } from "./helpers.js";
-import { initiateCall, listenToIncomingCalls, stopCall, toggleLocalVideo, toggleLocalAudio, triggerCameraSwitch, setZoom } from "./webrtc.js";
+import { initiateCall, listenToIncomingCalls, stopCall, toggleLocalVideo, toggleLocalAudio, triggerCameraSwitch, setZoom, toggleScreenShare } from "./webrtc.js";
 import { auth, db } from "./firebase-config.js";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "./vendor/firebase/firebase-auth.js";
 import { getFCMToken, listenForMessages } from "./firebase-app.js";
-import { collection, addDoc, query, getDocs, onSnapshot, orderBy, doc, updateDoc, setDoc, getDoc, where, arrayUnion, arrayRemove, deleteDoc, writeBatch, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getStorage, ref as storageRefFn, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+import { collection, addDoc, query, getDocs, onSnapshot, orderBy, doc, updateDoc, setDoc, getDoc, where, arrayUnion, arrayRemove, deleteDoc, writeBatch, serverTimestamp, increment } from "./vendor/firebase/firebase-firestore.js";
+import { getStorage, ref as storageRefFn, uploadBytes, getDownloadURL } from "./vendor/firebase/firebase-storage.js";
 const storage = getStorage();
+
+// Splash star animation + auto-dismiss
+(function() {
+    const overlay = document.getElementById('splashOverlay');
+    const star = document.getElementById('splashOverlayStar');
+    const splash = document.getElementById('splash');
+    if (!overlay || !star) return;
+    
+    star.animate([
+        { transform: 'translate(-200px, 200px) scale(0.3) rotate(0deg)', opacity: 0 },
+        { transform: 'translate(0, 0) scale(1) rotate(180deg)', opacity: 1, offset: 0.5 },
+        { transform: 'translate(200px, -200px) scale(0.3) rotate(360deg)', opacity: 0 }
+    ], { duration: 1200, easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' });
+    
+    setTimeout(() => {
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 600);
+    }, 1000);
+
+    if (splash) {
+        setTimeout(() => {
+            splash.style.pointerEvents = 'none';
+            splash.style.opacity = '0';
+            setTimeout(() => { splash.style.display = 'none'; }, 800);
+        }, 2000);
+    }
+})();
+
+// ========== WINDOW CONTROLS ==========
+if (window.electronAPI) {
+    document.getElementById('titlebarMinimize')?.addEventListener('click', () => window.electronAPI.windowMinimize());
+    document.getElementById('titlebarMaximize')?.addEventListener('click', () => window.electronAPI.windowMaximize());
+    document.getElementById('titlebarClose')?.addEventListener('click', () => window.electronAPI.windowClose());
+}
+
+async function autoTranslate(text, targetLang) {
+    try {
+        const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=auto|${targetLang}`);
+        const data = await resp.json();
+        if (data.responseStatus === 200 && data.responseData?.translatedText) {
+            return data.responseData.translatedText;
+        }
+    } catch(e) {}
+    return null;
+}
+
+function detectSimpleLang(text) {
+    if (/[а-яА-ЯёЁ]/.test(text)) return 'ru';
+    if (/[äöüß]/.test(text) || /\b(ist|und|der|die|das|nicht|ein)\b/i.test(text)) return 'de';
+    if (/[ñ¿¡]/.test(text) || /\b(el|la|los|las|es|son|está|tiene)\b/i.test(text)) return 'es';
+    if (/[àâçéèêëîïôùûüÿœæ]/i.test(text)) return 'fr';
+    if (/[а-яА-ЯёЁ]/.test(text)) return 'uk';
+    return 'en';
+}
 
 let currentUser = null, currentChatId = null, currentChatOtherId = null, unsubMessages = null, editingMessageId = null;
 let contextMenuChatId = null;
@@ -53,6 +107,11 @@ function getDisplayName(name, userData) {
     if (isCreator(userData)) return `${name}`;
     if (isPremium(userData)) return `${name}`;
     return name;
+}
+
+function getPremiumBadge(userData) {
+    if (!isPremium(userData) && !isCreator(userData)) return '';
+    return '<span class="premium-badge"><i class="fas fa-crown"></i> PREMIUM</span>';
 }
 
 function getPinnedChats() {
@@ -1015,10 +1074,10 @@ const notifToggle = document.getElementById('notifToggle');
 if (notifToggle) {
     notificationsEnabled = localStorage.getItem('notifications') === 'true';
     notifToggle.checked = notificationsEnabled;
-    notifToggle.onchange = () => { notificationsEnabled = notifToggle.checked; localStorage.setItem('notifications', notificationsEnabled); if (notificationsEnabled && Notification.permission !== 'granted') Notification.requestPermission(); };
+    notifToggle.onchange = () => { notificationsEnabled = notifToggle.checked; localStorage.setItem('notifications', notificationsEnabled); if (notificationsEnabled && 'Notification' in window && Notification.permission !== 'granted') Notification.requestPermission(); };
 }
 registerAppServiceWorker();
-if (Notification.permission === 'default' && isNotificationsEnabled()) {
+if ('Notification' in window && Notification.permission === 'default' && isNotificationsEnabled()) {
     Notification.requestPermission();
 }
 
@@ -1077,15 +1136,19 @@ async function renderChatCard(chat, container, index) {
     let name = chat.name || (isChannel ? 'Канал' : '');
     let otherId = null;
     let otherAvatar = null;
+    let otherUserData = null;
 
     if (chat.type === 'private') {
         let other = chat.members.find(m => m.uid !== currentUser.uid);
         otherId = other?.uid;
-        if (otherId) {
-            name = await getCustomNameForUser(otherId);
-            const otherDoc = await getDoc(doc(db, "users", otherId));
-            if (otherDoc.exists()) otherAvatar = otherDoc.data().avatarUrl;
-        } else name = chat.name;
+    if (otherId) {
+        name = await getCustomNameForUser(otherId);
+        const otherDoc = await getDoc(doc(db, "users", otherId));
+        if (otherDoc.exists()) {
+            otherAvatar = otherDoc.data().avatarUrl;
+            otherUserData = otherDoc.data();
+        }
+    } else name = chat.name;
     } else if (isChannel) {
         otherAvatar = chat.avatarUrl || null;
     }
@@ -1095,7 +1158,7 @@ async function renderChatCard(chat, container, index) {
         const nameEl = existing.querySelector('.chat-name');
         const lastEl = existing.querySelector('.chat-last');
         const timeEl = existing.querySelector('.chat-time');
-        if (nameEl) nameEl.innerHTML = `${escape(name)}${muted.includes(chat.id) ? '<i class="fas fa-bell-slash" style="color:var(--text-secondary);font-size:11px;margin-left:4px;"></i>' : ''}`;
+        if (nameEl) nameEl.innerHTML = `${escape(name)}${getPremiumBadge(otherUserData)}${muted.includes(chat.id) ? '<i class="fas fa-bell-slash" style="color:var(--text-secondary);font-size:11px;margin-left:4px;"></i>' : ''}`;
         if (lastEl) lastEl.textContent = chat.lastMessage || t('noMessagesPreview');
         if (timeEl) timeEl.textContent = formatChatTime(chat.lastMessageTime);
         return;
@@ -1114,7 +1177,7 @@ async function renderChatCard(chat, container, index) {
     div.innerHTML = `<div class="avatar chat-list-avatar"></div>
         <div class="chat-info" style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:4px;">
-                <div class="chat-name" style="flex:1; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escape(name)}${typeIcon}${muteIcon}</div>
+                <div class="chat-name" style="flex:1; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escape(name)}${getPremiumBadge(otherUserData)}${typeIcon}${muteIcon}</div>
                 <span class="chat-time" style="font-size:11px; color:var(--text-secondary); white-space:nowrap; flex-shrink:0;">${chatTime}</span>
                 ${pinIcon}
             </div>
@@ -1164,9 +1227,25 @@ function scheduleChatsRender(chats) {
     });
 }
 
+// Chat list cache (like Telegram)
+function cacheChatsList(chats) {
+    try {
+        localStorage.setItem('spark-chats-cache', JSON.stringify(chats.slice(0, 50)));
+    } catch(e) {}
+}
+function loadCachedChats() {
+    try {
+        const cached = JSON.parse(localStorage.getItem('spark-chats-cache') || '[]');
+        if (cached.length > 0) {
+            scheduleChatsRender(cached);
+        }
+    } catch(e) {}
+}
+
 async function loadChats() { 
     if (!currentUser) return;
     if (unsubChats) { unsubChats(); unsubChats = null; }
+    loadCachedChats();
     const q = query(collection(db, "chats"));
     unsubChats = onSnapshot(q, async (snap) => { 
         if (!currentUser) return; 
@@ -1198,6 +1277,7 @@ async function loadChats() {
         }
 
         scheduleChatsRender(chats);
+        cacheChatsList(chats);
         
         if (!notificationsReady) {
             setTimeout(() => { notificationsReady = true; }, 2000);
@@ -1254,8 +1334,8 @@ function openChat(id, name, otherId = null) {
     const chatView = document.getElementById('chatView');
     if (chatView) { chatView.style.display = 'flex'; chatView.classList.add('chat-open'); }
     
-    const actions = document.getElementById('chatHeaderActions');
-    if (actions) { actions.classList.remove('open'); actions.style.display = ''; }
+    const chatHeaderActions = document.getElementById('chatHeaderActions');
+    if (chatHeaderActions) chatHeaderActions.style.display = 'flex';
     
     markMessagesAsRead(id);
     
@@ -1347,6 +1427,21 @@ function openChat(id, name, otherId = null) {
                         content = `<div class="message-text" data-msg-text="${escape(msg.text)}">${displayText}</div>`;
                     }
                     if(msg.edited) content += `<span class="edited-badge"> ${t('edited')}</span>`;
+                    // Auto-translate for premium users
+                    if (msg.text && !isEmojiOnly(msg.text) && !isMy && currentUser?.premium) {
+                        const savedLang = localStorage.getItem('spark-lang') || 'ru';
+                        const msgLang = detectSimpleLang(msg.text);
+                        if (msgLang && msgLang !== savedLang) {
+                            autoTranslate(msg.text, savedLang).then(translated => {
+                                if (translated) {
+                                    const el = bubble.querySelector('.message-text');
+                                    if (el) {
+                                        el.innerHTML += `<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;font-style:italic;border-top:1px solid var(--border);padding-top:4px;">${escape(translated)}</div>`;
+                                    }
+                                }
+                            });
+                        }
+                    }
                 } 
                 
                 const bubble = document.createElement('div');
@@ -1357,7 +1452,7 @@ function openChat(id, name, otherId = null) {
                 if (msg.replyTo) {
                     const replySnippet = msg.replyToText ? escape(msg.replyToText).substring(0, 80) : '';
                     const replySender = msg.replyToSenderName ? escape(msg.replyToSenderName) : '';
-                    replyHtml = `<div class="reply-quote" style="border-left:3px solid var(--accent);padding:4px 10px;margin-bottom:6px;border-radius:4px;background:rgba(108,92,231,0.08);font-size:12px;"><div style="font-weight:600;color:var(--accent);font-size:11px;">${replySender}</div><div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">${replySnippet}</div></div>`;
+                    replyHtml = `<div class="reply-quote" style="border-left:3px solid var(--accent);padding:4px 10px;margin-bottom:6px;border-radius:4px;background:rgba(255,255,255,0.08);font-size:12px;"><div style="font-weight:600;color:var(--accent);font-size:11px;">${replySender}</div><div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">${replySnippet}</div></div>`;
                 }
                 let forwardHtml = '';
                 if (msg.forwardedFrom) {
@@ -1385,10 +1480,13 @@ function openChat(id, name, otherId = null) {
                         const bar = document.getElementById('msgActionBar');
                         if (!bar) return;
                         bar.style.display = 'flex';
-                        const bw = 280, bh = 44;
-                        let left = Math.max(10, Math.min(e.clientX - bw/2, window.innerWidth - bw - 10));
-                        let top = e.clientY - bh - 12;
-                        if (top < 10) top = e.clientY + 12;
+                        const bw = 280;
+                        const bubbleRect = bubble.getBoundingClientRect();
+                        let left = bubbleRect.right - bw;
+                        let top = bubbleRect.bottom + 8;
+                        if (left < 10) left = 10;
+                        if (left + bw > window.innerWidth - 10) left = window.innerWidth - bw - 10;
+                        if (top + 200 > window.innerHeight) top = bubbleRect.top - 8 - 200;
                         bar.style.left = left + 'px';
                         bar.style.top = Math.max(10, top) + 'px';
                         bar.dataset.msgId = msg.id;
@@ -1496,6 +1594,16 @@ if (backBtn) {
         currentChatId = null;
         currentChatOtherId = null;
     };
+}
+
+// Desktop titlebar buttons
+if (window.SparkEngine?.window) {
+    const tbMinimize = document.getElementById('titlebarMinimize');
+    const tbMaximize = document.getElementById('titlebarMaximize');
+    const tbClose = document.getElementById('titlebarClose');
+    if (tbMinimize) tbMinimize.addEventListener('click', () => SparkEngine.window.minimize());
+    if (tbMaximize) tbMaximize.addEventListener('click', () => SparkEngine.window.maximize());
+    if (tbClose) tbClose.addEventListener('click', () => SparkEngine.window.close());
 }
 
 const saveEditBtn = document.getElementById('btnSaveEdit');
@@ -1621,6 +1729,8 @@ async function forwardToChat(targetChatId) {
     await updateDoc(doc(db, 'chats', targetChatId), { lastMessage: msgData.type === 'text' ? msgData.text : `[${msgData.type}]`, lastMessageTime: serverTimestamp() });
     showDynamicIsland('Переслано', 'success');
     window._forwardMsgData = null;
+    document.getElementById('forwardPickerModal').style.display = 'none';
+    openChat(targetChatId);
 }
 
 document.getElementById('btnCancelForward')?.addEventListener('click', () => {
@@ -1759,18 +1869,8 @@ if (videoCallBtn) {
     });
 }
 
-// Toggle call buttons on header name click
-document.getElementById('chatHeaderInfo')?.addEventListener('click', (e) => {
-    if (!currentChatOtherId) return;
-    const actions = document.getElementById('chatHeaderActions');
-    if (actions) actions.classList.toggle('open');
-});
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.hdr-capsule') && !e.target.closest('.hdr-actions')) {
-        const actions = document.getElementById('chatHeaderActions');
-        if (actions) actions.classList.remove('open');
-    }
-});
+// Call buttons are now always visible in header (Discord style)
+// Old dropdown toggle removed
 
 document.getElementById('endCallBtn')?.addEventListener('click', stopCall);
 document.getElementById('btnDeclineCall')?.addEventListener('click', stopCall);
@@ -1783,10 +1883,11 @@ document.getElementById('toggleMicBtn')?.addEventListener('click', () => {
 document.getElementById('toggleCameraBtn')?.addEventListener('click', () => {
     const enabled = toggleLocalVideo();
     if (enabled !== null) {
-        document.getElementById('toggleCameraBtn').innerHTML = enabled ? '<i class="fas fa-camera"></i>' : '<i class="fas fa-video-slash"></i>';
+        document.getElementById('toggleCameraBtn').innerHTML = enabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
     }
 });
 document.getElementById('switchCameraBtn')?.addEventListener('click', triggerCameraSwitch);
+document.getElementById('toggleScreenShareBtn')?.addEventListener('click', toggleScreenShare);
 
 const circleRecordBtnGlobal = document.getElementById('circleRecordBtn');
 if (circleRecordBtnGlobal) {
@@ -1906,6 +2007,7 @@ if (btnStep2) {
             }
             
             await signInWithEmailAndPassword(auth, email, pass);
+            saveAccountToStorage({ uid: users.docs[0].id, ...userData, email }, pass);
         } catch(e) { 
             console.error("Auth Error:", e);
             if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
@@ -1952,6 +2054,7 @@ if (btnRegister) {
                 online: true 
             });
             showDynamicIsland('Регистрация успешна!', 'success');
+            saveAccountToStorage({ uid: user.user.uid, name, username, email }, pass);
             // Auto-subscribe to SPARK channel
             subscribeToSparkChannel(user.user.uid, name, username);
         } catch(e) { showDynamicIsland(e.message, 'error'); }
@@ -1967,8 +2070,111 @@ if (logoutSettingsButton) {
             if (unsubMessages) unsubMessages();
             if (unsubChats) unsubChats();
             if (onlineStatusInterval) clearInterval(onlineStatusInterval);
+            removeAccountFromStorage(currentUser?.uid);
+            currentUser = null;
             const appContainer = document.getElementById('app');
             if (appContainer) appContainer.style.display = 'none';
+            document.body.classList.remove('logged-in');
+            const authStep1 = document.getElementById('authStep1');
+            if (!authStep1) {
+                location.reload();
+            }
+            document.querySelectorAll('.screen').forEach(s => s.remove());
+            const splash = document.getElementById('splash');
+            if (splash) splash.remove();
+            location.reload();
+        }
+    });
+}
+
+// ========== СИСТЕМА АККАУНТОВ (как Telegram) ==========
+function getSavedAccounts() {
+    try { return JSON.parse(localStorage.getItem('spark-accounts') || '[]'); } catch { return []; }
+}
+
+function saveAccountToStorage(userData, password) {
+    const accounts = getSavedAccounts();
+    const existing = accounts.findIndex(a => a.uid === userData.uid);
+    const accountData = {
+        uid: userData.uid,
+        name: userData.name || '',
+        username: userData.username || '',
+        avatarUrl: userData.avatarUrl || '',
+        email: userData.email || '',
+        password: password || ''
+    };
+    if (existing >= 0) {
+        accounts[existing] = { ...accounts[existing], ...accountData };
+    } else {
+        accounts.push(accountData);
+    }
+    localStorage.setItem('spark-accounts', JSON.stringify(accounts));
+}
+
+function removeAccountFromStorage(uid) {
+    const accounts = getSavedAccounts().filter(a => a.uid !== uid);
+    localStorage.setItem('spark-accounts', JSON.stringify(accounts));
+}
+
+function renderDrawerAccounts() {
+    const list = document.getElementById('drawerAccountList');
+    if (!list) return;
+    const accounts = getSavedAccounts();
+    const currentUid = currentUser?.uid;
+    list.innerHTML = accounts.map(a => `
+        <div class="drawer-account-item${a.uid === currentUid ? ' active' : ''}" data-uid="${a.uid}" data-email="${a.email || ''}" data-password="${a.password || ''}" style="display:flex;align-items:center;gap:12px;padding:8px 16px;cursor:pointer;border-radius:10px;${a.uid === currentUid ? 'background:rgba(255,255,255,0.08);' : ''}transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='${a.uid === currentUid ? 'rgba(255,255,255,0.08)' : 'transparent'}'">
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#333,#111);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:700;flex-shrink:0;overflow:hidden;">
+                ${a.avatarUrl ? `<img src="${a.avatarUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;">${(a.name || a.username || '?')[0].toUpperCase()}</div>` : (a.name || a.username || '?')[0].toUpperCase()}
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name || 'Без имени'}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.username || ''}</div>
+            </div>
+            ${a.uid === currentUid ? '<i class="fas fa-check" style="font-size:12px;color:rgba(255,255,255,0.5);"></i>' : '<i class="fas fa-chevron-right" style="font-size:10px;color:rgba(255,255,255,0.2);"></i>'}
+        </div>
+    `).join('');
+
+    list.querySelectorAll('.drawer-account-item').forEach(el => {
+        el.addEventListener('click', async () => {
+            const uid = el.dataset.uid;
+            const email = el.dataset.email;
+            const password = el.dataset.password;
+            if (uid === currentUid) return;
+            
+            if (email && password) {
+                closeHamburger();
+                showDynamicIsland('Переключение аккаунта...', 'info');
+                await setOfflineStatus();
+                if (unsubMessages) unsubMessages();
+                if (unsubChats) unsubChats();
+                if (onlineStatusInterval) clearInterval(onlineStatusInterval);
+                currentUser = null;
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    location.reload();
+                } catch (e) {
+                    showDynamicIsland('Ошибка переключения: ' + (e.message || e.code), 'error');
+                    location.reload();
+                }
+            } else {
+                closeHamburger();
+                showDynamicIsland('Пароль не сохранён. Войдите заново.', 'error');
+            }
+        });
+    });
+}
+
+const addAccountBtn = document.getElementById('drawerAddAccountBtn');
+if (addAccountBtn) {
+    addAccountBtn.addEventListener('click', async () => {
+        closeHamburger();
+        if (confirm('Добавить новый аккаунт? Текущий аккаунт будет сохранён.')) {
+            await setOfflineStatus();
+            if (unsubMessages) unsubMessages();
+            if (unsubChats) unsubChats();
+            if (onlineStatusInterval) clearInterval(onlineStatusInterval);
+            await signOut(auth);
+            location.reload();
         }
     });
 }
@@ -2002,6 +2208,7 @@ function openHamburgerDrawer() {
         renderAvatar(document.getElementById('drawerAvatar'), { avatarUrl: currentUser.avatarUrl, name: currentUser.name });
         const dn = document.getElementById('drawerName'); if (dn) dn.textContent = currentUser.name;
         const du = document.getElementById('drawerUsername'); if (du) du.textContent = '@' + (currentUser.username || '');
+        renderDrawerAccounts();
     }
 }
 document.getElementById('btnHamburger')?.addEventListener('click', openHamburgerDrawer);
@@ -2209,7 +2416,7 @@ function openChannel(id, name, channelData) {
     
     // Hide call buttons for channels
     const actions = document.getElementById('chatHeaderActions');
-    if (actions) { actions.classList.remove('open'); actions.style.display = 'none'; }
+    if (actions) { actions.style.display = 'none'; }
     
     // Check if user can write
     const isOwner = channelData.ownerId === currentUser.uid;
@@ -2285,7 +2492,7 @@ function openChannel(id, name, channelData) {
                 if (msg.replyTo) {
                     const replySnippet = msg.replyToText ? escape(msg.replyToText).substring(0, 80) : '';
                     const replySender = msg.replyToSenderName ? escape(msg.replyToSenderName) : '';
-                    replyHtml = `<div class="reply-quote" style="border-left:3px solid var(--accent);padding:4px 10px;margin-bottom:6px;border-radius:4px;background:rgba(108,92,231,0.08);font-size:12px;"><div style="font-weight:600;color:var(--accent);font-size:11px;">${replySender}</div><div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">${replySnippet}</div></div>`;
+                    replyHtml = `<div class="reply-quote" style="border-left:3px solid var(--accent);padding:4px 10px;margin-bottom:6px;border-radius:4px;background:rgba(255,255,255,0.08);font-size:12px;"><div style="font-weight:600;color:var(--accent);font-size:11px;">${replySender}</div><div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">${replySnippet}</div></div>`;
                 }
                 let forwardHtml = '';
                 if (msg.forwardedFrom) {
@@ -2313,10 +2520,13 @@ function openChannel(id, name, channelData) {
                         const bar = document.getElementById('msgActionBar');
                         if (!bar) return;
                         bar.style.display = 'flex';
-                        const bw = 280, bh = 44;
-                        let left = Math.max(10, Math.min(e.clientX - bw/2, window.innerWidth - bw - 10));
-                        let top = e.clientY - bh - 12;
-                        if (top < 10) top = e.clientY + 12;
+                        const bw = 280;
+                        const bubbleRect = bubble.getBoundingClientRect();
+                        let left = bubbleRect.right - bw;
+                        let top = bubbleRect.bottom + 8;
+                        if (left < 10) left = 10;
+                        if (left + bw > window.innerWidth - 10) left = window.innerWidth - bw - 10;
+                        if (top + 200 > window.innerHeight) top = bubbleRect.top - 8 - 200;
                         bar.style.left = left + 'px';
                         bar.style.top = Math.max(10, top) + 'px';
                         bar.dataset.msgId = msg.id;
@@ -2838,7 +3048,18 @@ async function openProfileModal(userId) {
     const name = await getCustomNameForUser(userId);
     
     renderAvatar(document.getElementById('modalTargetAvatar'), { avatarUrl: u.avatarUrl, name });
-    document.getElementById('modalTargetName').textContent = name;
+    document.getElementById('modalTargetName').innerHTML = name + getPremiumBadge(u);
+    
+    const modalBgImg = document.getElementById('modalProfileBgImg');
+    const modalBgWrap = document.getElementById('modalProfileBg');
+    if (modalBgImg && modalBgWrap) {
+        if (u.profileBgUrl) {
+            modalBgImg.src = u.profileBgUrl;
+            modalBgImg.style.display = 'block';
+        } else {
+            modalBgImg.style.display = 'none';
+        }
+    }
     const modalUser = document.getElementById('modalTargetUser');
     if (modalUser) { modalUser.style.display = 'block'; modalUser.textContent = u.username || ''; }
     document.getElementById('modalTargetBio').textContent = u.bio || t('noInfo');
@@ -3006,61 +3227,72 @@ function setupForegroundNotifications() {
 // ========== AUTH STATE ==========
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        let docUser = await getDoc(doc(db, "users", user.uid));
-        if (docUser.exists()) {
-            currentUser = { uid: user.uid, ...docUser.data() };
-            
-            // Restore app state and settings
-            applySavedTheme();
-            applySavedLanguage();
-            applySavedWallpaper();
-            syncProfile(currentUser);
-            
-            // UI elements specific to logged in user
-            const myNameDisplay = document.getElementById('myNameDisplay');
-            if (myNameDisplay) myNameDisplay.textContent = currentUser.name;
-            const myUserDisplay = document.getElementById('myUserDisplay');
-            if (myUserDisplay) myUserDisplay.textContent = currentUser.username;
-            
-            // Load data
-            loadChats();
-            loadUserAvatar();
-            listenToIncomingCalls(currentUser);
-            startNotificationsListener(user.uid);
-            saveFCMToken(user.uid);
-            setupForegroundNotifications();
-            registerCurrentDevice();
-            initSparkChannel();
-            updateFaceIdStatus();
-            applyCustomSettings();
-            loadPremiumStatus();
-            if (isPremium(currentUser) || isCreator(currentUser)) setupAutoTranslate();
-            
-            // Show admin premium button for creator only
-            if (isCreator(currentUser)) {
-                const adminBtn = document.getElementById('btn-admin-premium-edit');
-                if (adminBtn) adminBtn.style.display = 'block';
-            }
-            
-            // Start online status heartbeat
-            onlineStatusInterval = setInterval(updateOnlineStatus, 15000);
-            updateOnlineStatus();
+        // ===== SHOW APP IMMEDIATELY — don't let async failures block UI =====
+        document.body.classList.add('logged-in');
+        const appContainer = document.getElementById('app');
+        if (appContainer) appContainer.style.display = 'flex';
 
-            const appContainer = document.getElementById('app');
-            if (appContainer) {
-                appContainer.style.display = 'flex';
+        // Remove splash immediately so it never blocks clicks
+        const splashEl = document.getElementById('splash');
+        if (splashEl) splashEl.remove();
+        const splashOverlayEl = document.getElementById('splashOverlay');
+        if (splashOverlayEl) splashOverlayEl.remove();
+
+        // Remove auth screens immediately — they overlay entire screen at z-index 9000
+        document.querySelectorAll('.screen').forEach(s => s.remove());
+
+        try {
+            let docUser = await getDoc(doc(db, "users", user.uid));
+            if (docUser.exists()) {
+                currentUser = { uid: user.uid, ...docUser.data() };
+                saveAccountToStorage(currentUser);
+                renderDrawerAccounts();
+
+                // Restore app state and settings
+                applySavedTheme();
+                applySavedLanguage();
+                applySavedWallpaper();
+                syncProfile(currentUser);
+                
+                // UI elements specific to logged in user
+                const myNameDisplay = document.getElementById('myNameDisplay');
+                if (myNameDisplay) myNameDisplay.innerHTML = currentUser.name + getPremiumBadge(currentUser);
+                const myUserDisplay = document.getElementById('myUserDisplay');
+                if (myUserDisplay) myUserDisplay.textContent = currentUser.username;
+                
+                // Load data
+                loadChats();
+                loadUserAvatar();
+                loadProfileBg(currentUser.profileBgUrl);
+                listenToIncomingCalls(currentUser);
+                startNotificationsListener(user.uid);
+                saveFCMToken(user.uid);
+                setupForegroundNotifications();
+                registerCurrentDevice();
+                initSparkChannel();
+                updateFaceIdStatus();
+                applyCustomSettings();
+                loadPremiumStatus();
+                if (isPremium(currentUser) || isCreator(currentUser)) setupAutoTranslate();
+                
+                // Show admin premium button for creator only
+                if (isCreator(currentUser)) {
+                    const adminBtn = document.getElementById('btn-admin-premium-edit');
+                    if (adminBtn) adminBtn.style.display = 'block';
+                }
+                
+                // Start online status heartbeat
+                onlineStatusInterval = setInterval(updateOnlineStatus, 15000);
+                updateOnlineStatus();
+            } else {
+                showDynamicIsland('Профиль не найден', 'error');
             }
-            
-            // Hide auth screens
-            const authScreens = document.querySelectorAll('.screen');
-            authScreens.forEach(s => s.style.display = 'none');
-            
-            // Hide splash screen if it's still there
-            const splash = document.getElementById('splash');
-            if (splash) splash.style.display = 'none';
+        } catch (e) {
+            console.error("Auth state error:", e);
         }
     } else {
         currentUser = null;
+        document.body.classList.remove('logged-in');
         if (onlineStatusInterval) clearInterval(onlineStatusInterval);
         const appContainer = document.getElementById('app');
         if (appContainer) appContainer.style.display = 'none';
@@ -3081,7 +3313,7 @@ async function loadPremiumStatus() {
         if (data?.premium) {
             const activated = data.premiumActivatedAt?.toDate?.() || new Date(data.premiumActivatedAt);
             if (statusText) {
-                statusText.innerHTML = `<span style="color:#6c5ce7;font-weight:700;">Активирован</span> ${activated ? '· ' + activated.toLocaleDateString('ru-RU') : ''}`;
+                statusText.innerHTML = `<span style="color:#ffffff;font-weight:700;">Активирован</span> ${activated ? '· ' + activated.toLocaleDateString('ru-RU') : ''}`;
             }
             const uploadBtn = document.getElementById('btnUploadReceipt');
             const activateBtn = document.getElementById('btnActivatePremium');
@@ -3164,7 +3396,7 @@ document.getElementById('btnActivatePremium')?.addEventListener('click', async (
             createdAt: new Date().toISOString()
         });
         
-        if (msg) { msg.style.display = 'block'; msg.textContent = 'AI проверяет квитанцию...'; msg.style.color = '#6c5ce7'; }
+        if (msg) { msg.style.display = 'block'; msg.textContent = 'AI проверяет квитанцию...'; msg.style.color = '#ffffff'; }
         showDynamicIsland('AI проверяет квитанцию...', 'info');
         
         // Auto AI verification
@@ -3212,6 +3444,8 @@ async function autoVerifyReceipt(receiptId, receiptUrl, plan) {
             await updateDoc(doc(db, "premiumReceipts", receiptId), { status: "approved", reviewedAt: new Date().toISOString(), reviewedBy: 'ai-bot' });
             await updateDoc(doc(db, "users", currentUser.uid), { premium: true, premiumActivatedAt: new Date().toISOString(), premiumActivatedBy: 'ai-bot' });
             currentUser.premium = true;
+            const myNameDisplay = document.getElementById('myNameDisplay');
+            if (myNameDisplay) myNameDisplay.innerHTML = currentUser.name + getPremiumBadge(currentUser);
             if (msg) { msg.innerHTML = '<span style="color:#2ecc71;">Premium активирован! (AI подтвердил)</span>'; }
             showDynamicIsland('Premium активирован! AI подтвердил квитанцию.', 'success');
             const uploadBtn = document.getElementById('btnUploadReceipt');
@@ -3611,10 +3845,10 @@ document.getElementById('btnAdminPremiumSearch')?.addEventListener('click', asyn
                 div.innerHTML = `
                     <div style="flex:1;">
                         <div style="font-weight:600;font-size:14px;">${escape(u.name || u.username)}</div>
-                        <div style="font-size:12px;color:var(--text-secondary);">${escape(u.username || '')} ${isPrem ? '<span style="color:#6c5ce7;font-weight:700;">Premium</span>' : ''}</div>
+                        <div style="font-size:12px;color:var(--text-secondary);">${escape(u.username || '')} ${isPrem ? '<span style="color:#ffffff;font-weight:700;">Premium</span>' : ''}</div>
                     </div>
                     <button class="btn admin-grant-premium" data-uid="${u.uid}" data-name="${escape(u.name || u.username)}" data-action="${isPrem ? 'revoke' : 'grant'}" 
-                        style="padding:8px 14px;font-size:12px;width:auto;background:${isPrem ? '#ff3b30' : '#6c5ce7'};color:#fff;">
+                        style="padding:8px 14px;font-size:12px;width:auto;background:${isPrem ? '#ff3b30' : '#ffffff'};color:#fff;">
                         ${isPrem ? '<i class="fas fa-times"></i> Снять' : '<i class="fas fa-star"></i> Выдать'}
                     </button>
                 `;
@@ -3646,9 +3880,10 @@ document.getElementById('btnAdminPremiumSearch')?.addEventListener('click', asyn
                         });
                         showDynamicIsland(`Premium снят у ${name}`, 'info');
                     }
-                    // Refresh search results
+                    // Refresh search results and reload chats
                     document.getElementById('btnAdminPremiumSearch')?.click();
                     loadAdminPremiumList();
+                    loadChats();
                 } catch (e) {
                     showDynamicIsland('Ошибка', 'error');
                 }
@@ -3681,7 +3916,7 @@ async function loadAdminPremiumList() {
             const div = document.createElement('div');
             div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px;';
             div.innerHTML = `
-                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#6c5ce7,#a29bfe);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;flex-shrink:0;"><i class="fas fa-star"></i></div>
+                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#ffffff,#333333);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;flex-shrink:0;"><i class="fas fa-star"></i></div>
                 <div style="flex:1;">
                     <div style="font-weight:600;font-size:14px;">${escape(u.name || u.username)}</div>
                     <div style="font-size:12px;color:var(--text-secondary);">${escape(u.username || '')} · Активирован ${activated}</div>
@@ -3829,7 +4064,7 @@ async function loadAdminReceiptsList() {
 
 // ========== КАСТОМ (PREMIUM) ==========
 let customWallpaperData = null;
-const CARD_COLORS = ['#6c5ce7','#00b894','#0984e3','#e17055','#fdcb6e','#e84393','#00cec9','#d63031','#2d3436','#636e72'];
+const CARD_COLORS = ['#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff'];
 
 async function loadCustomSettings() {
     if (!currentUser) return;
@@ -3864,7 +4099,7 @@ async function loadCustomSettings() {
         const colorsContainer = document.getElementById('customCardColors');
         if (colorsContainer) {
             colorsContainer.innerHTML = '';
-            const currentColor = data.customCardColor || '#6c5ce7';
+            const currentColor = data.customCardColor || '#ffffff';
             CARD_COLORS.forEach(color => {
                 const sq = document.createElement('div');
                 sq.style.cssText = `width:36px;height:36px;border-radius:50%;background:${color};cursor:pointer;border:3px solid ${color === currentColor ? '#fff' : 'transparent'};transition:border-color 0.2s;`;
@@ -3927,7 +4162,7 @@ document.getElementById('btnSaveCustom')?.addEventListener('click', async () => 
     if (!currentUser) return;
     const opacity = parseInt(document.getElementById('customOpacity')?.value || '100');
     const colorsEl = document.getElementById('customCardColors');
-    const cardColor = colorsEl?.dataset?.selected || '#6c5ce7';
+    const cardColor = colorsEl?.dataset?.selected || '#ffffff';
     
     try {
         const updateData = { customOpacity: opacity, customCardColor: cardColor };
@@ -3970,12 +4205,10 @@ document.getElementById('btnSaveCustom')?.addEventListener('click', async () => 
 function applyCustomSettings() {
     if (!currentUser) return;
     const opacity = currentUser.customOpacity ?? 100;
-    const cardColor = currentUser.customCardColor;
     const wallpaper = currentUser.customWallpaper;
     
-    if (cardColor) {
-        document.documentElement.style.setProperty('--accent', cardColor);
-    }
+    document.documentElement.style.setProperty('--accent', '#ffffff');
+    document.documentElement.style.setProperty('--accent-soft', 'rgba(255,255,255,0.12)');
     document.querySelectorAll('.card, .glass-panel, .search-box, .switch-container, .footer').forEach(el => {
         el.style.opacity = opacity < 100 ? String(opacity / 100) : '';
     });
@@ -4086,6 +4319,16 @@ document.getElementById('reactionPicker')?.querySelectorAll('.reaction-emoji').f
     btn.addEventListener('mouseleave', () => { btn.style.transform = 'scale(1)'; });
 });
 
+document.querySelectorAll('.reaction-quick').forEach(btn => {
+    btn.addEventListener('mouseenter', () => { btn.style.transform = 'scale(1.3)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.transform = 'scale(1)'; });
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (editingMessageId) toggleReaction(editingMessageId, btn.dataset.reaction);
+        hideAllContextMenus();
+    });
+});
+
 document.addEventListener('click', () => {
     const picker = document.getElementById('reactionPicker');
     if (picker) picker.style.display = 'none';
@@ -4105,4 +4348,187 @@ document.addEventListener('pointerdown', (e) => {
     document.addEventListener('pointercancel', cancel);
 });
 
-// SPARK v2.0.2
+// Swipe left on message bubble → context menu (mobile)
+(function() {
+    let touchStartX = 0, touchStartY = 0;
+    document.addEventListener('touchstart', (e) => {
+        const bubble = e.target.closest('.message-bubble');
+        if (!bubble) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', (e) => {
+        const bubble = e.target.closest('.message-bubble');
+        if (!bubble) return;
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+        if (dx < -60 && dy < 50) {
+            const msgDiv = bubble.closest('[data-msg-id]');
+            if (!msgDiv) return;
+            const msgId = msgDiv.dataset.msgId;
+            const msgData = window._editingMsgData || {};
+            editingMessageId = msgId;
+            window._editingMsgData = JSON.parse(msgDiv.dataset.msgJson || '{}');
+            const msgMenu = document.getElementById('messageContextMenu');
+            const editBtn = document.getElementById('btnMsgEdit');
+            const touch = e.changedTouches[0];
+            if (editBtn) editBtn.style.display = 'flex';
+            if (msgMenu) showContextMenu(msgMenu, touch.clientX, touch.clientY);
+        }
+    });
+})();
+
+// SPARK v2.0.5
+
+// ========== ДОБАВИТЬ ЧЕЛОВЕКА В ЗВОНОК ==========
+const btnAddToCall = document.getElementById('btnAddToCall');
+const addPersonCallModal = document.getElementById('addPersonCallModal');
+const addPersonCallSearch = document.getElementById('addPersonCallSearch');
+const addPersonCallResults = document.getElementById('addPersonCallResults');
+
+if (btnAddToCall) {
+    btnAddToCall.addEventListener('click', () => {
+        if (addPersonCallModal) addPersonCallModal.classList.add('active');
+        if (addPersonCallSearch) { addPersonCallSearch.value = ''; addPersonCallSearch.focus(); }
+    });
+}
+
+if (addPersonCallSearch) {
+    addPersonCallSearch.addEventListener('input', async (e) => {
+        const q = e.target.value.trim().toLowerCase();
+        if (!addPersonCallResults || q.length < 1) { addPersonCallResults.innerHTML = ''; return; }
+        try {
+            const usersSnap = await getDocs(query(collection(db, "users"), where("username", ">=", q), where("username", "<=", q + '\uf8ff')));
+            addPersonCallResults.innerHTML = '';
+            usersSnap.forEach(d => {
+                const u = d.data();
+                if (u.uid === currentUser?.uid) return;
+                const item = document.createElement('div');
+                item.className = 'search-item';
+                item.style.cssText = 'padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);cursor:pointer;';
+                item.innerHTML = `<div><strong style="color:var(--text);font-size:14px;">${escape(u.name || u.username)}</strong><br><small style="color:var(--text-secondary);font-size:12px;">@${escape(u.username)}</small></div>
+                    <button class="small-btn" style="font-size:11px;">Пригласить</button>`;
+                item.querySelector('.small-btn').addEventListener('click', async () => {
+                    try {
+                        if (currentCallId) {
+                            await updateDoc(doc(db, "calls", currentCallId), { targetId: u.uid, status: "calling" });
+                            showDynamicIsland(`Приглашение отправлено ${u.name || u.username}`, 'success');
+                        }
+                    } catch (err) { console.error('Invite error:', err); }
+                    addPersonCallModal.classList.remove('active');
+                });
+                addPersonCallResults.appendChild(item);
+            });
+            if (addPersonCallResults.children.length === 0) {
+                addPersonCallResults.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-secondary);font-size:13px;">Пользователь не найден</div>';
+            }
+        } catch (err) { console.warn('Search error:', err); }
+    });
+}
+
+// ========== ПРОФИЛЬ — ФОН С ИЗОБРАЖЕНИЕМ ==========
+function compressProfileBg(file, maxWidth, quality) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                        else reject(new Error('Canvas toBlob failed'));
+                    }, 'image/jpeg', quality || 0.75);
+                } catch (err) { reject(err); }
+            };
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('FileReader failed'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function enhanceImageWithCanvas(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width; canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.min(255, data[i] * 1.05);
+                        data[i + 1] = Math.min(255, data[i + 1] * 1.05);
+                        data[i + 2] = Math.min(255, data[i + 2] * 1.05);
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                        else reject(new Error('Canvas toBlob failed'));
+                    }, 'image/jpeg', 0.85);
+                } catch (err) { reject(err); }
+            };
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('FileReader failed'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function loadProfileBg(url) {
+    const img = document.getElementById('profileBgImg');
+    const placeholder = document.getElementById('profileBgPlaceholder');
+    if (!img || !placeholder) return;
+    if (url) {
+        img.src = url;
+        img.style.display = 'block';
+        placeholder.style.display = 'none';
+    } else {
+        img.style.display = 'none';
+        placeholder.style.display = 'flex';
+    }
+}
+
+function setupProfileBackground() {
+    const profileBgEdit = document.getElementById('profileBgEditBtn');
+    const profileBgInput = document.getElementById('profileBgInput');
+    if (profileBgEdit && profileBgInput) {
+        profileBgEdit.addEventListener('click', () => profileBgInput.click());
+        profileBgInput.addEventListener('change', async (e) => {
+            const file = e.target.files?.[0];
+            if (!file || !currentUser) return;
+            showDynamicIsland('Обработка изображения...', 'file');
+            try {
+                let processed = await compressProfileBg(file, 1200, 0.8);
+                processed = await enhanceImageWithCanvas(processed);
+                const { ref: storageRefFn, uploadBytes, getDownloadURL } = await import('./vendor/firebase/firebase-storage.js');
+                const storage = getStorage();
+                const fileRef = storageRefFn(storage, `profile-bg/${currentUser.uid}`);
+                await uploadBytes(fileRef, processed);
+                const url = await getDownloadURL(fileRef);
+                await updateDoc(doc(db, "users", currentUser.uid), { profileBgUrl: url });
+                loadProfileBg(url);
+                currentUser.profileBgUrl = url;
+                showDynamicIsland('Фон профиля обновлён', 'success');
+            } catch (err) {
+                console.error('Profile bg upload error:', err);
+                showDynamicIsland('Ошибка загрузки', 'error');
+            }
+        });
+    }
+    if (currentUser?.profileBgUrl) loadProfileBg(currentUser.profileBgUrl);
+}
+
+setTimeout(setupProfileBackground, 1500);

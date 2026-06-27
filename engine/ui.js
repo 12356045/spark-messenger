@@ -145,7 +145,7 @@ export function confirm(title, message, confirmText = 'Да', cancelText = 'От
                 h('button', {
                     style: {
                         padding: '10px 24px', borderRadius: '12px', border: 'none',
-                        background: 'var(--accent, #007aff)', color: '#fff', fontSize: '14px', fontWeight: '600',
+                        background: 'var(--accent, #ffffff)', color: '#fff', fontSize: '14px', fontWeight: '600',
                         cursor: 'pointer', transition: 'all 0.2s'
                     },
                     onclick: () => { modal.close(); resolve(true); }
@@ -208,7 +208,7 @@ export function createTabs(config) {
         if (!bar) return;
         bar.querySelectorAll('.spark-tab-btn').forEach(btn => {
             const isActive = btn.dataset.tab === activeTab.value;
-            btn.style.color = isActive ? 'var(--accent, #007aff)' : 'var(--text-secondary, #8e8e93)';
+            btn.style.color = isActive ? 'var(--accent, #ffffff)' : 'var(--text-secondary, #8e8e93)';
             btn.style.background = isActive ? 'var(--bg, #000)' : 'transparent';
         });
     }
@@ -268,7 +268,7 @@ export function renderAvatar(avatarUrl, name = '', size = 42) {
         style: {
             width: size + 'px', height: size + 'px', borderRadius: '50%',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'var(--accent, #007aff)', color: '#fff',
+            background: 'var(--accent, #ffffff)', color: '#fff',
             fontSize: (size * 0.4) + 'px', fontWeight: '700', overflow: 'hidden',
             flexShrink: '0', userSelect: 'none'
         }
@@ -321,7 +321,7 @@ export function createInput(config = {}) {
         oninput: () => { state.value = input.value; }
     });
 
-    input.addEventListener('focus', () => { input.style.borderColor = 'var(--accent, #007aff)'; });
+    input.addEventListener('focus', () => { input.style.borderColor = 'var(--accent, #ffffff)'; });
     input.addEventListener('blur', () => { input.style.borderColor = 'var(--border, #38383a)'; });
 
     wrapper.appendChild(input);
@@ -333,10 +333,10 @@ export function createInput(config = {}) {
 export function createButton(config = {}) {
     const { text = '', icon = '', onClick, variant = 'primary', className = '' } = config;
     const variants = {
-        primary: 'background:var(--accent,#007aff);color:#fff;',
+        primary: 'background:var(--accent,#ffffff);color:#fff;',
         secondary: 'background:var(--card,#1c1c1e);color:var(--text,#fff);border:1px solid var(--border,#38383a);',
         danger: 'background:rgba(255,59,48,0.15);color:#ff3b30;',
-        ghost: 'background:transparent;color:var(--accent,#007aff);'
+        ghost: 'background:transparent;color:var(--accent,#ffffff);'
     };
 
     const btn = h('button', {

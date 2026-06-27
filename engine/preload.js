@@ -6,7 +6,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('SparkEngine', {
-    version: '2.0.2',
+    version: '2.0.3',
 
     // ─── IPC ────────────────────────────────────────────────
     invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),

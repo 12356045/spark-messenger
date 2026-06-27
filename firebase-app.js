@@ -1,6 +1,6 @@
 // firebase-app.js - использует уже созданный app
-import { getApps } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js';
+import { getApps } from './vendor/firebase/firebase-app.js';
+import { getMessaging, getToken, onMessage } from './vendor/firebase/firebase-messaging.js';
 
 function getApp() {
   const apps = getApps();

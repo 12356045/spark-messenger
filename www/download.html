@@ -19,12 +19,12 @@
             --bg: #0a0a14;
             --card: rgba(255,255,255,0.06);
             --border: rgba(255,255,255,0.1);
-            --accent: #6c5ce7;
-            --accent2: #a29bfe;
+            --accent: #333333;
+            --accent2: #aaaaaa;
             --text: #f5f5f7;
             --text2: rgba(255,255,255,0.5);
             --green: #34c759;
-            --blue: #007aff;
+            --blue: #aaaaaa;
         }
 
         body {
@@ -50,7 +50,7 @@
             transform: translateX(-50%);
             width: 600px;
             height: 600px;
-            background: radial-gradient(circle, rgba(108,92,231,0.15) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
             pointer-events: none;
         }
 
@@ -85,8 +85,8 @@
             margin-top: 16px;
             padding: 6px 16px;
             border-radius: 20px;
-            background: rgba(108,92,231,0.15);
-            border: 1px solid rgba(108,92,231,0.3);
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
             color: var(--accent2);
             font-size: 13px;
             font-weight: 600;
@@ -179,7 +179,7 @@
 
         .download-btn.primary {
             background: linear-gradient(135deg, var(--accent), var(--accent2));
-            box-shadow: 0 4px 20px rgba(108,92,231,0.4);
+            box-shadow: 0 4px 20px rgba(255,255,255,0.4);
         }
 
         .download-btn.secondary {
@@ -280,11 +280,11 @@
 
 <div class="hero">
     <div class="logo">
-        <svg viewBox="0 0 56 56" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="56" y2="56"><stop offset="0" stop-color="#6c5ce7"/><stop offset="1" stop-color="#4834d4"/></linearGradient></defs><rect width="56" height="56" rx="14" fill="url(#lg)"/><path d="M28 10 L30.5 21 L42 19 L32 28 L42 37 L30.5 35 L28 46 L25.5 35 L14 37 L24 28 L14 19 L25.5 21 Z" fill="white"/></svg>
+        <svg viewBox="0 0 56 56" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="56" y2="56"><stop offset="0" stop-color="#333333"/><stop offset="1" stop-color="#333333"/></linearGradient></defs><rect width="56" height="56" rx="14" fill="url(#lg)"/><path d="M28 10 L30.5 21 L42 19 L32 28 L42 37 L30.5 35 L28 46 L25.5 35 L14 37 L24 28 L14 19 L25.5 21 Z" fill="white"/></svg>
         <h1>SPARK</h1>
     </div>
     <p>Мессенджер нового поколения. Быстрые сообщения, звонки, каналы и многое другое.</p>
-    <div class="version-badge">v2.0.2</div>
+    <div class="version-badge">v2.0.3</div>
 </div>
 
 <div class="platforms">
@@ -382,7 +382,7 @@
 </div>
 
 <div class="footer">
-    <p>SPARK v2.0.2</p>
+    <p>SPARK v2.0.3</p>
     <p style="margin-top:8px;">
         <a href="https://spark-ead35.web.app">Веб-приложение</a> &middot;
         <a href="https://github.com/12356045/spark-messenger">GitHub</a>
@@ -402,13 +402,13 @@
             document.getElementById('win-dl-btn').href = win.browser_download_url;
             document.getElementById('win-info').textContent = win.name + ' / ' + Math.round(win.size / 1024 / 1024) + 'MB';
         } else {
-            document.getElementById('win-info').textContent = 'v' + (data.tag_name || '2.0.2') + ' / Windows 10/11';
+            document.getElementById('win-info').textContent = 'v' + (data.tag_name || '2.0.3') + ' / Windows 10/11';
         }
         if (mac) {
             document.getElementById('mac-dl-btn').href = mac.browser_download_url;
             document.getElementById('mac-info').textContent = mac.name + ' / ' + Math.round(mac.size / 1024 / 1024) + 'MB';
         } else {
-            document.getElementById('mac-info').textContent = 'v' + (data.tag_name || '2.0.2') + ' / macOS 13+';
+            document.getElementById('mac-info').textContent = 'v' + (data.tag_name || '2.0.3') + ' / macOS 13+';
         }
         if (data.tag_name) {
             const badge = document.querySelector('.version-badge');
