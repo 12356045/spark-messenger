@@ -1,4 +1,4 @@
-import { doc, getDocs, updateDoc, collection, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { doc, getDocs, updateDoc, collection, query, where } from "./vendor/firebase/firebase-firestore.js";
 import { db } from "./firebase-config.js";
 import { getLang } from "./ui.js";
 
@@ -244,9 +244,35 @@ export function getMessagePreview(msg) {
     return 'Новое сообщение';
 }
 
+let _notifAudioCtx = null;
+export function playNotificationSound() {
+    try {
+        if (!_notifAudioCtx) _notifAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = _notifAudioCtx;
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.value = 880;
+        osc2.type = 'sine';
+        osc2.frequency.value = 1320;
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+        osc1.start(ctx.currentTime);
+        osc2.start(ctx.currentTime + 0.08);
+        osc1.stop(ctx.currentTime + 0.15);
+        osc2.stop(ctx.currentTime + 0.3);
+    } catch (_) {}
+}
+
 export async function notifyIncomingMessage(title, body, chatId) {
     if (!isNotificationsEnabled()) return;
-    if (Notification.permission !== 'granted') return;
+    if ('Notification' in window && Notification.permission !== 'granted') return;
+
+    playNotificationSound();
 
     const options = {
         body,

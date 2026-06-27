@@ -1,9 +1,9 @@
-import { doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { doc, updateDoc } from "./vendor/firebase/firebase-firestore.js";
 import { db } from "./firebase-config.js";
 
 const languages = {
     ru: {
-        chats: "Чаты", settings: "Настройки", notifications: "Уведомления", profile: "Мой профиль",
+        chats: "Чаты", feed: "Лента", settings: "Настройки", notifications: "Уведомления", profile: "Мой профиль",
         appearance: "Оформление", lang: "Язык", logout: "Выйти из аккаунта", search: "Поиск по @username...",
         security: "Безопасность", storage: "Хранилище", message: "Сообщение...", offline: "не в сети",
         online: "в сети", noChats: "Нет чатов", noMessages: "Нет сообщений", pinChat: "Закрепить чат",
@@ -21,7 +21,7 @@ const languages = {
         notFound: "Никого не найдено", noMessagesPreview: "Нет сообщений", edited: "(ред.)"
     },
     en: {
-        chats: "Chats", settings: "Settings", notifications: "Notifications", profile: "My Profile",
+        chats: "Chats", feed: "Feed", settings: "Settings", notifications: "Notifications", profile: "My Profile",
         appearance: "Appearance", lang: "Language", logout: "Log Out", search: "Search by @username...",
         security: "Security", storage: "Storage", message: "Message...", offline: "offline",
         online: "online", noChats: "No chats", noMessages: "No messages", pinChat: "Pin chat",
@@ -39,7 +39,7 @@ const languages = {
         notFound: "No one found", noMessagesPreview: "No messages", edited: "(edited)"
     },
     uk: {
-        chats: "Чати", settings: "Налаштування", notifications: "Сповіщення", profile: "Мій профіль",
+        chats: "Чати", feed: "Стрічка", settings: "Налаштування", notifications: "Сповіщення", profile: "Мій профіль",
         appearance: "Оформлення", lang: "Мова", logout: "Вийти з акаунта", search: "Пошук за @username...",
         security: "Безпека", storage: "Сховище", message: "Повідомлення...", offline: "не в мережі",
         online: "в мережі", noChats: "Немає чатів", noMessages: "Немає повідомлень", pinChat: "Закріпити чат",
@@ -57,7 +57,7 @@ const languages = {
         notFound: "Нікого не знайдено", noMessagesPreview: "Немає повідомлень", edited: "(ред.)"
     },
     kk: {
-        chats: "Чаттар", settings: "Баптаулар", notifications: "Хабарландырулар", profile: "Менің профилім",
+        chats: "Чаттар", feed: "Лента", settings: "Баптаулар", notifications: "Хабарландырулар", profile: "Менің профилім",
         appearance: "Әрлеу", lang: "Тіл", logout: "Аккаунттан шығу", search: "@username бойынша іздеу...",
         security: "Қауіпсіздік", storage: "Сақтау", message: "Хабарлама...", offline: "желіде емес",
         online: "желіде", noChats: "Чаттар жоқ", noMessages: "Хабарламалар жоқ", pinChat: "Чатты бекіту",
@@ -89,9 +89,10 @@ export function renderAvatar(el, { avatarUrl, name } = {}) {
     if (!el) return;
     const initial = (name || '?')[0]?.toUpperCase() || '?';
     if (avatarUrl) {
-        el.innerHTML = `<img src="${avatarUrl}" alt="">`;
+        el.innerHTML = `<img src="${avatarUrl}" alt="" onerror="this.parentElement.innerHTML='${initial}'">`;
     } else {
-        el.textContent = initial;
+        el.innerHTML = initial;
+        el.style.background = 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05))';
     }
 }
 
@@ -108,6 +109,7 @@ export function applySavedLanguage() {
 
     const map = {
         'tab-chats-btn': `<i class="fas fa-comment-alt"></i>${dict.chats}`,
+        'tab-feed-btn': `<i class="fas fa-newspaper"></i>${dict.feed || 'Лента'}`,
         'tab-settings-btn': `<i class="fas fa-cog"></i>${dict.settings}`,
         'label-notifications': `<i class="fas fa-bell"></i> ${dict.notifications}`,
         'btn-profile-edit': `<i class="fas fa-user"></i> ${dict.profile}`,
@@ -188,11 +190,16 @@ export function syncProfile(currentUser) {
 export function switchTab(tab, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.full-pane').forEach(p => p.classList.remove('active'));
     if (btn) btn.classList.add('active');
     document.getElementById(`pane-${tab}`)?.classList.add('active');
+    // Also activate the corresponding tab button by id
+    const tabBtn = document.getElementById(`tab-${tab}-btn`);
+    if (tabBtn) tabBtn.classList.add('active');
 }
 
 export function openPanel(id) {
+    document.querySelectorAll('.full-pane.active').forEach(p => p.classList.remove('active'));
     const panelId = `panel${id.charAt(0).toUpperCase() + id.slice(1)}`;
     const panel = document.getElementById(panelId);
     if (panel) panel.classList.add('active');

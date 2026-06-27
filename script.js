@@ -1,12 +1,146 @@
 import { openPanel, closePanel, switchTab, applySavedLanguage, applySavedWallpaper, syncProfile, applySavedTheme, initPanelHandlers, renderAvatar, t } from "./ui.js";
 import { getBlobUrlFromBase64, formatLastSeen, compressImage, detectDevice, getCameraConstraints, getSupportedVideoMimeType, isNotificationsEnabled, notifyIncomingMessage, registerAppServiceWorker, getMessagePreview, createCirclePlayerHTML, initCirclePlayer, closeCircleFullscreen, setRingProgress, formatVideoTime, CIRCLE_MAX_DURATION } from "./helpers.js";
-import { initiateCall, listenToIncomingCalls, stopCall, toggleLocalVideo, toggleLocalAudio, triggerCameraSwitch, setZoom } from "./webrtc.js";
+import { initiateCall, listenToIncomingCalls, stopCall, toggleLocalVideo, toggleLocalAudio, triggerCameraSwitch, setZoom, toggleScreenShare } from "./webrtc.js";
 import { auth, db } from "./firebase-config.js";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "./vendor/firebase/firebase-auth.js";
 import { getFCMToken, listenForMessages } from "./firebase-app.js";
-import { collection, addDoc, query, getDocs, onSnapshot, orderBy, doc, updateDoc, setDoc, getDoc, where, arrayUnion, arrayRemove, deleteDoc, writeBatch, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getStorage, ref as storageRefFn, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+import { collection, addDoc, query, getDocs, onSnapshot, orderBy, doc, updateDoc, setDoc, getDoc, where, arrayUnion, arrayRemove, deleteDoc, writeBatch, serverTimestamp, increment } from "./vendor/firebase/firebase-firestore.js";
+import { getStorage, ref as storageRefFn, uploadBytes, getDownloadURL } from "./vendor/firebase/firebase-storage.js";
 const storage = getStorage();
+
+// Splash star animation + auto-dismiss
+(function() {
+    const overlay = document.getElementById('splashOverlay');
+    const star = document.getElementById('splashOverlayStar');
+    const splash = document.getElementById('splash');
+    if (!overlay || !star) return;
+    
+    star.animate([
+        { transform: 'translate(-200px, 200px) scale(0.3) rotate(0deg)', opacity: 0 },
+        { transform: 'translate(0, 0) scale(1) rotate(180deg)', opacity: 1, offset: 0.5 },
+        { transform: 'translate(200px, -200px) scale(0.3) rotate(360deg)', opacity: 0 }
+    ], { duration: 1200, easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' });
+    
+    setTimeout(() => {
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 600);
+    }, 1000);
+
+    if (splash) {
+        setTimeout(() => {
+            splash.style.pointerEvents = 'none';
+            splash.style.opacity = '0';
+            setTimeout(() => { splash.style.display = 'none'; }, 800);
+        }, 2000);
+    }
+})();
+
+// ========== ГОЛОСОВЫЕ СООБЩЕНИЯ (волна) ==========
+const voiceAudioCache = {};
+
+function generateWaveformBars(container, barCount = 30) {
+    if (!container || container.children.length > 0) return;
+    for (let i = 0; i < barCount; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'wave-bar';
+        bar.style.height = (Math.random() * 20 + 8) + 'px';
+        container.appendChild(bar);
+    }
+}
+
+function formatVoiceDuration(sec) {
+    const s = Math.floor(sec || 0);
+    return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+}
+
+function toggleVoiceMsg(btn) {
+    const wrap = btn.closest('.voice-msg-wrap');
+    if (!wrap) return;
+    const src = wrap.dataset.audioSrc;
+    const waveId = wrap.dataset.waveId;
+    const durationEl = wrap.querySelector('.voice-duration');
+    const waveform = document.getElementById(waveId);
+
+    if (!voiceAudioCache[waveId]) {
+        const audio = new Audio(src);
+        audio.preload = 'metadata';
+        voiceAudioCache[waveId] = audio;
+        generateWaveformBars(waveform);
+        audio.addEventListener('loadedmetadata', () => {
+            if (durationEl) durationEl.textContent = formatVoiceDuration(audio.duration);
+        });
+    }
+
+    const audio = voiceAudioCache[waveId];
+    const icon = btn.querySelector('i');
+
+    if (audio.paused) {
+        Object.keys(voiceAudioCache).forEach(k => {
+            if (k !== waveId && !voiceAudioCache[k].paused) {
+                voiceAudioCache[k].pause();
+                voiceAudioCache[k].currentTime = 0;
+                const otherWrap = document.querySelector(`[data-wave-id="${k}"]`);
+                if (otherWrap) {
+                    const otherBtn = otherWrap.querySelector('.voice-play-btn i');
+                    if (otherBtn) otherBtn.className = 'fas fa-play';
+                    otherWrap.querySelectorAll('.wave-bar').forEach(b => b.classList.remove('played'));
+                }
+            }
+        });
+
+        audio.play().catch(() => {});
+        icon.className = 'fas fa-pause';
+
+        const bars = waveform ? waveform.querySelectorAll('.wave-bar') : [];
+        const totalBars = bars.length;
+        const updateWave = () => {
+            if (audio.paused) return;
+            const progress = audio.duration ? audio.currentTime / audio.duration : 0;
+            const activeIndex = Math.floor(progress * totalBars);
+            bars.forEach((b, i) => b.classList.toggle('played', i <= activeIndex));
+            if (durationEl) durationEl.textContent = formatVoiceDuration(audio.currentTime);
+            requestAnimationFrame(updateWave);
+        };
+        requestAnimationFrame(updateWave);
+
+        audio.onended = () => {
+            icon.className = 'fas fa-play';
+            bars.forEach(b => b.classList.remove('played'));
+            if (durationEl && audio.duration) durationEl.textContent = formatVoiceDuration(audio.duration);
+        };
+    } else {
+        audio.pause();
+        icon.className = 'fas fa-play';
+    }
+}
+window.toggleVoiceMsg = toggleVoiceMsg;
+
+// ========== WINDOW CONTROLS ==========
+if (window.electronAPI) {
+    document.getElementById('titlebarMinimize')?.addEventListener('click', () => window.electronAPI.windowMinimize());
+    document.getElementById('titlebarMaximize')?.addEventListener('click', () => window.electronAPI.windowMaximize());
+    document.getElementById('titlebarClose')?.addEventListener('click', () => window.electronAPI.windowClose());
+}
+
+async function autoTranslate(text, targetLang) {
+    try {
+        const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=auto|${targetLang}`);
+        const data = await resp.json();
+        if (data.responseStatus === 200 && data.responseData?.translatedText) {
+            return data.responseData.translatedText;
+        }
+    } catch(e) {}
+    return null;
+}
+
+function detectSimpleLang(text) {
+    if (/[а-яА-ЯёЁ]/.test(text)) return 'ru';
+    if (/[äöüß]/.test(text) || /\b(ist|und|der|die|das|nicht|ein)\b/i.test(text)) return 'de';
+    if (/[ñ¿¡]/.test(text) || /\b(el|la|los|las|es|son|está|tiene)\b/i.test(text)) return 'es';
+    if (/[àâçéèêëîïôùûüÿœæ]/i.test(text)) return 'fr';
+    if (/[а-яА-ЯёЁ]/.test(text)) return 'uk';
+    return 'en';
+}
 
 let currentUser = null, currentChatId = null, currentChatOtherId = null, unsubMessages = null, editingMessageId = null;
 let contextMenuChatId = null;
@@ -53,6 +187,11 @@ function getDisplayName(name, userData) {
     if (isCreator(userData)) return `${name}`;
     if (isPremium(userData)) return `${name}`;
     return name;
+}
+
+function getPremiumBadge(userData) {
+    if (!isPremium(userData) && !isCreator(userData)) return '';
+    return '<span class="premium-badge"><i class="fas fa-crown"></i> PREMIUM</span>';
 }
 
 function getPinnedChats() {
@@ -210,11 +349,11 @@ function subscribeToChatUserStatus(userId) {
 }
 
 function getSupportedAudioMimeType() {
-    const types = ['audio/mp4', 'audio/aac', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg'];
+    const types = ['audio/mp4;codecs=mp4a.40.2', 'audio/mp4', 'audio/aac', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg'];
     for (const type of types) {
         if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)) return type;
     }
-    return '';
+    return 'audio/mp4';
 }
 
 async function markMessagesAsRead(chatId) {
@@ -226,12 +365,25 @@ async function markMessagesAsRead(chatId) {
         snapshot.forEach(doc => {
             const data = doc.data();
             if (!data.read && data.senderId !== currentUser.uid) {
-                batch.update(doc.ref, { read: true, readAt: serverTimestamp() });
+                batch.update(doc.ref, { read: true, readAt: serverTimestamp(), delivered: true });
+            } else if (data.senderId !== currentUser.uid && !data.delivered) {
+                batch.update(doc.ref, { delivered: true, deliveredAt: serverTimestamp() });
             }
         });
         await batch.commit();
     } catch(e) {
         console.log("Ошибка markMessagesAsRead:", e);
+    }
+}
+
+function getReadCheckHtml(msg, isMy) {
+    if (!isMy) return '';
+    if (msg.read) {
+        return '<i class="fas fa-check-double" style="color:#53bdeb;font-size:11px;margin-left:4px;"></i>';
+    } else if (msg.delivered) {
+        return '<i class="fas fa-check-double" style="color:var(--text-secondary);font-size:11px;margin-left:4px;"></i>';
+    } else {
+        return '<i class="fas fa-check" style="color:var(--text-secondary);font-size:11px;margin-left:4px;"></i>';
     }
 }
 
@@ -1015,10 +1167,10 @@ const notifToggle = document.getElementById('notifToggle');
 if (notifToggle) {
     notificationsEnabled = localStorage.getItem('notifications') === 'true';
     notifToggle.checked = notificationsEnabled;
-    notifToggle.onchange = () => { notificationsEnabled = notifToggle.checked; localStorage.setItem('notifications', notificationsEnabled); if (notificationsEnabled && Notification.permission !== 'granted') Notification.requestPermission(); };
+    notifToggle.onchange = () => { notificationsEnabled = notifToggle.checked; localStorage.setItem('notifications', notificationsEnabled); if (notificationsEnabled && 'Notification' in window && Notification.permission !== 'granted') Notification.requestPermission(); };
 }
 registerAppServiceWorker();
-if (Notification.permission === 'default' && isNotificationsEnabled()) {
+if ('Notification' in window && Notification.permission === 'default' && isNotificationsEnabled()) {
     Notification.requestPermission();
 }
 
@@ -1077,15 +1229,19 @@ async function renderChatCard(chat, container, index) {
     let name = chat.name || (isChannel ? 'Канал' : '');
     let otherId = null;
     let otherAvatar = null;
+    let otherUserData = null;
 
     if (chat.type === 'private') {
         let other = chat.members.find(m => m.uid !== currentUser.uid);
         otherId = other?.uid;
-        if (otherId) {
-            name = await getCustomNameForUser(otherId);
-            const otherDoc = await getDoc(doc(db, "users", otherId));
-            if (otherDoc.exists()) otherAvatar = otherDoc.data().avatarUrl;
-        } else name = chat.name;
+    if (otherId) {
+        name = await getCustomNameForUser(otherId);
+        const otherDoc = await getDoc(doc(db, "users", otherId));
+        if (otherDoc.exists()) {
+            otherAvatar = otherDoc.data().avatarUrl;
+            otherUserData = otherDoc.data();
+        }
+    } else name = chat.name;
     } else if (isChannel) {
         otherAvatar = chat.avatarUrl || null;
     }
@@ -1095,7 +1251,7 @@ async function renderChatCard(chat, container, index) {
         const nameEl = existing.querySelector('.chat-name');
         const lastEl = existing.querySelector('.chat-last');
         const timeEl = existing.querySelector('.chat-time');
-        if (nameEl) nameEl.innerHTML = `${escape(name)}${muted.includes(chat.id) ? '<i class="fas fa-bell-slash" style="color:var(--text-secondary);font-size:11px;margin-left:4px;"></i>' : ''}`;
+        if (nameEl) nameEl.innerHTML = `${escape(name)}${getPremiumBadge(otherUserData)}${muted.includes(chat.id) ? '<i class="fas fa-bell-slash" style="color:var(--text-secondary);font-size:11px;margin-left:4px;"></i>' : ''}`;
         if (lastEl) lastEl.textContent = chat.lastMessage || t('noMessagesPreview');
         if (timeEl) timeEl.textContent = formatChatTime(chat.lastMessageTime);
         return;
@@ -1114,7 +1270,7 @@ async function renderChatCard(chat, container, index) {
     div.innerHTML = `<div class="avatar chat-list-avatar"></div>
         <div class="chat-info" style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:4px;">
-                <div class="chat-name" style="flex:1; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escape(name)}${typeIcon}${muteIcon}</div>
+                <div class="chat-name" style="flex:1; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escape(name)}${getPremiumBadge(otherUserData)}${typeIcon}${muteIcon}</div>
                 <span class="chat-time" style="font-size:11px; color:var(--text-secondary); white-space:nowrap; flex-shrink:0;">${chatTime}</span>
                 ${pinIcon}
             </div>
@@ -1164,9 +1320,25 @@ function scheduleChatsRender(chats) {
     });
 }
 
+// Chat list cache (like Telegram)
+function cacheChatsList(chats) {
+    try {
+        localStorage.setItem('spark-chats-cache', JSON.stringify(chats.slice(0, 50)));
+    } catch(e) {}
+}
+function loadCachedChats() {
+    try {
+        const cached = JSON.parse(localStorage.getItem('spark-chats-cache') || '[]');
+        if (cached.length > 0) {
+            scheduleChatsRender(cached);
+        }
+    } catch(e) {}
+}
+
 async function loadChats() { 
     if (!currentUser) return;
     if (unsubChats) { unsubChats(); unsubChats = null; }
+    loadCachedChats();
     const q = query(collection(db, "chats"));
     unsubChats = onSnapshot(q, async (snap) => { 
         if (!currentUser) return; 
@@ -1198,6 +1370,7 @@ async function loadChats() {
         }
 
         scheduleChatsRender(chats);
+        cacheChatsList(chats);
         
         if (!notificationsReady) {
             setTimeout(() => { notificationsReady = true; }, 2000);
@@ -1254,8 +1427,8 @@ function openChat(id, name, otherId = null) {
     const chatView = document.getElementById('chatView');
     if (chatView) { chatView.style.display = 'flex'; chatView.classList.add('chat-open'); }
     
-    const actions = document.getElementById('chatHeaderActions');
-    if (actions) { actions.classList.remove('open'); actions.style.display = ''; }
+    const chatHeaderActions = document.getElementById('chatHeaderActions');
+    if (chatHeaderActions) chatHeaderActions.style.display = 'flex';
     
     markMessagesAsRead(id);
     
@@ -1271,6 +1444,16 @@ function openChat(id, name, otherId = null) {
             if (!userDoc.exists()) return;
             const u = userDoc.data();
             renderAvatar(document.getElementById('chatTargetAvatar'), { avatarUrl: u.avatarUrl, name: displayName || u.name || u.username });
+        });
+        // Show subscription label in chat header
+        getDoc(doc(db, "users", currentUser.uid)).then(myDoc => {
+            if (!myDoc.exists()) return;
+            const myData = myDoc.data();
+            const sub = (myData.customSubscriptions || []).find(s => s.userId === uid);
+            const statusEl = document.getElementById('chatTargetStatus');
+            if (statusEl && sub) {
+                statusEl.innerHTML = `<span style="color:var(--accent);font-weight:600;">${escape(sub.name)}</span>`;
+            }
         });
     };
 
@@ -1307,11 +1490,11 @@ function openChat(id, name, otherId = null) {
                 
                 if(msg.type === 'image') { 
                     let src = getBlobUrlFromBase64(msg.content || msg.url); 
-                    content = `<div class="msg-image-wrap"><img src="${src}" onclick="window.open(this.src,'_blank')"></div>`; 
+                    content = `<div class="msg-image-wrap"><img src="${src}" onclick="event.stopPropagation();const v=document.getElementById('mediaViewerOverlay');const i=document.getElementById('mediaViewerImg');const vid=document.getElementById('mediaViewerVideo');i.src=this.src;i.style.display='block';vid.style.display='none';v.style.display='flex'"></div>`; 
                 } 
                 else if(msg.type === 'video') { 
                     let src = getBlobUrlFromBase64(msg.content || msg.url); 
-                    content = `<video src="${src}" controls playsinline webkit-playsinline style="max-width:200px;max-height:200px;border-radius:16px;"></video>`; 
+                    content = `<div style="max-width:280px;cursor:pointer;border-radius:12px;overflow:hidden;" onclick="event.stopPropagation();const v=document.getElementById('mediaViewerOverlay');const vid=document.getElementById('mediaViewerVideo');const img=document.getElementById('mediaViewerImg');vid.src='${src}';vid.style.display='block';img.style.display='none';v.style.display='flex';vid.play().catch(()=>{})"><video src="${src}" preload="metadata" playsinline webkit-playsinline style="width:100%;max-height:240px;border-radius:12px;"></video></div>`; 
                 }
                 else if(msg.type === 'circle') {
                     const src = msg.content && !msg.content.startsWith('data:') ? msg.content : getBlobUrlFromBase64(msg.content || msg.url);
@@ -1323,7 +1506,12 @@ function openChat(id, name, otherId = null) {
                 } 
                 else if(msg.type === 'voice') { 
                     const audioSrc = getBlobUrlFromBase64(msg.content);
-                    content = `<audio controls preload="metadata" playsinline src="${audioSrc}" style="max-width:220px;height:40px;border-radius:20px;"></audio>`; 
+                    const waveId = 'wave_' + Math.random().toString(36).substr(2,8);
+                    content = `<div class="voice-msg-wrap" data-audio-src="${audioSrc}" data-wave-id="${waveId}">
+                        <button class="voice-play-btn" onclick="event.stopPropagation();toggleVoiceMsg(this)"><i class="fas fa-play"></i></button>
+                        <div class="voice-waveform" id="${waveId}"></div>
+                        <span class="voice-duration">0:00</span>
+                    </div>`; 
                 } 
                 else if(msg.type === 'call') {
                     const callerName = await getCustomNameForUser(msg.callerId);
@@ -1347,6 +1535,21 @@ function openChat(id, name, otherId = null) {
                         content = `<div class="message-text" data-msg-text="${escape(msg.text)}">${displayText}</div>`;
                     }
                     if(msg.edited) content += `<span class="edited-badge"> ${t('edited')}</span>`;
+                    // Auto-translate for premium users
+                    if (msg.text && !isEmojiOnly(msg.text) && !isMy && currentUser?.premium) {
+                        const savedLang = localStorage.getItem('spark-lang') || 'ru';
+                        const msgLang = detectSimpleLang(msg.text);
+                        if (msgLang && msgLang !== savedLang) {
+                            autoTranslate(msg.text, savedLang).then(translated => {
+                                if (translated) {
+                                    const el = bubble.querySelector('.message-text');
+                                    if (el) {
+                                        el.innerHTML += `<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;font-style:italic;border-top:1px solid var(--border);padding-top:4px;">${escape(translated)}</div>`;
+                                    }
+                                }
+                            });
+                        }
+                    }
                 } 
                 
                 const bubble = document.createElement('div');
@@ -1357,38 +1560,43 @@ function openChat(id, name, otherId = null) {
                 if (msg.replyTo) {
                     const replySnippet = msg.replyToText ? escape(msg.replyToText).substring(0, 80) : '';
                     const replySender = msg.replyToSenderName ? escape(msg.replyToSenderName) : '';
-                    replyHtml = `<div class="reply-quote" style="border-left:3px solid var(--accent);padding:4px 10px;margin-bottom:6px;border-radius:4px;background:rgba(108,92,231,0.08);font-size:12px;"><div style="font-weight:600;color:var(--accent);font-size:11px;">${replySender}</div><div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">${replySnippet}</div></div>`;
+                    replyHtml = `<div class="reply-quote" style="border-left:3px solid var(--accent);padding:4px 10px;margin-bottom:6px;border-radius:4px;background:rgba(255,255,255,0.08);font-size:12px;"><div style="font-weight:600;color:var(--accent);font-size:11px;">${replySender}</div><div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">${replySnippet}</div></div>`;
                 }
                 let forwardHtml = '';
                 if (msg.forwardedFrom) {
                     forwardHtml = `<div style="font-size:11px;color:var(--accent);font-weight:600;margin-bottom:4px;"><i class="fas fa-share" style="margin-right:4px;font-size:10px;"></i>Переслано от ${escape(msg.forwardedFrom)}</div>`;
                 }
-                bubble.innerHTML = `<div>${forwardHtml}${replyHtml}${content}</div><div class="message-time">${msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || ''}</div>`;
+                bubble.innerHTML = `<div>${forwardHtml}${replyHtml}${content}</div><div class="message-time">${msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || ''}${getReadCheckHtml(msg, isMy)}</div>`;
                 
                 if (msg.type === 'circle') initCirclePlayer(bubble);
                 
                 if (isMy && msg.type !== 'system' && msg.type !== 'call' && msg.type !== 'circle') {
-                    bubble.addEventListener('click', (e) => {
-                        e.stopPropagation();
+                    setupLongPress(bubble, (e) => {
+                        e.preventDefault();
                         const msgMenu = document.getElementById('messageContextMenu');
                         const editBtn = document.getElementById('btnMsgEdit');
                         if (editBtn) editBtn.style.display = msg.type === 'text' && isMy ? 'flex' : 'none';
                         editingMessageId = msg.id;
                         window._editingMsgText = msg.text || '';
                         window._editingMsgData = msg;
-                        showContextMenu(msgMenu, e.clientX, e.clientY);
+                        const x = e.touches?.[0]?.clientX || e.clientX;
+                        const y = e.touches?.[0]?.clientY || e.clientY;
+                        showContextMenu(msgMenu, x, y);
                     });
                 }
                 if (!isMy && msg.type !== 'system' && msg.type !== 'call' && msg.type !== 'circle') {
-                    bubble.addEventListener('click', (e) => {
-                        e.stopPropagation();
+                    setupLongPress(bubble, (e) => {
+                        e.preventDefault();
                         const bar = document.getElementById('msgActionBar');
                         if (!bar) return;
                         bar.style.display = 'flex';
-                        const bw = 280, bh = 44;
-                        let left = Math.max(10, Math.min(e.clientX - bw/2, window.innerWidth - bw - 10));
-                        let top = e.clientY - bh - 12;
-                        if (top < 10) top = e.clientY + 12;
+                        const bw = 280;
+                        const bubbleRect = bubble.getBoundingClientRect();
+                        let left = bubbleRect.right - bw;
+                        let top = bubbleRect.bottom + 8;
+                        if (left < 10) left = 10;
+                        if (left + bw > window.innerWidth - 10) left = window.innerWidth - bw - 10;
+                        if (top + 200 > window.innerHeight) top = bubbleRect.top - 8 - 200;
                         bar.style.left = left + 'px';
                         bar.style.top = Math.max(10, top) + 'px';
                         bar.dataset.msgId = msg.id;
@@ -1459,7 +1667,7 @@ async function sendMessage() {
         }
     }
     
-    await addDoc(collection(db, "messages"), { chatId: currentChatId, type: 'text', text: messageText, senderId: currentUser.uid, senderName: currentUser.name, timestamp: serverTimestamp(), _localTime: Date.now(), edited: false, read: false, replyTo: window._replyToMsgId || null, replyToText: window._replyToText || null, replyToSenderName: window._replyToSenderName || null });
+    await addDoc(collection(db, "messages"), { chatId: currentChatId, type: 'text', text: messageText, senderId: currentUser.uid, senderName: currentUser.name, timestamp: serverTimestamp(), _localTime: Date.now(), edited: false, read: false, delivered: false, replyTo: window._replyToMsgId || null, replyToText: window._replyToText || null, replyToSenderName: window._replyToSenderName || null });
     await updateDoc(doc(db, "chats", currentChatId), { lastMessage: messageText, lastMessageTime: serverTimestamp() });
     messageInput.value = '';
     toggleSendButton();
@@ -1496,6 +1704,16 @@ if (backBtn) {
         currentChatId = null;
         currentChatOtherId = null;
     };
+}
+
+// Desktop titlebar buttons
+if (window.SparkEngine?.window) {
+    const tbMinimize = document.getElementById('titlebarMinimize');
+    const tbMaximize = document.getElementById('titlebarMaximize');
+    const tbClose = document.getElementById('titlebarClose');
+    if (tbMinimize) tbMinimize.addEventListener('click', () => SparkEngine.window.minimize());
+    if (tbMaximize) tbMaximize.addEventListener('click', () => SparkEngine.window.maximize());
+    if (tbClose) tbClose.addEventListener('click', () => SparkEngine.window.close());
 }
 
 const saveEditBtn = document.getElementById('btnSaveEdit');
@@ -1621,6 +1839,8 @@ async function forwardToChat(targetChatId) {
     await updateDoc(doc(db, 'chats', targetChatId), { lastMessage: msgData.type === 'text' ? msgData.text : `[${msgData.type}]`, lastMessageTime: serverTimestamp() });
     showDynamicIsland('Переслано', 'success');
     window._forwardMsgData = null;
+    document.getElementById('forwardPickerModal').style.display = 'none';
+    openChat(targetChatId);
 }
 
 document.getElementById('btnCancelForward')?.addEventListener('click', () => {
@@ -1759,18 +1979,8 @@ if (videoCallBtn) {
     });
 }
 
-// Toggle call buttons on header name click
-document.getElementById('chatHeaderInfo')?.addEventListener('click', (e) => {
-    if (!currentChatOtherId) return;
-    const actions = document.getElementById('chatHeaderActions');
-    if (actions) actions.classList.toggle('open');
-});
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.hdr-capsule') && !e.target.closest('.hdr-actions')) {
-        const actions = document.getElementById('chatHeaderActions');
-        if (actions) actions.classList.remove('open');
-    }
-});
+// Call buttons are now always visible in header (Discord style)
+// Old dropdown toggle removed
 
 document.getElementById('endCallBtn')?.addEventListener('click', stopCall);
 document.getElementById('btnDeclineCall')?.addEventListener('click', stopCall);
@@ -1783,10 +1993,11 @@ document.getElementById('toggleMicBtn')?.addEventListener('click', () => {
 document.getElementById('toggleCameraBtn')?.addEventListener('click', () => {
     const enabled = toggleLocalVideo();
     if (enabled !== null) {
-        document.getElementById('toggleCameraBtn').innerHTML = enabled ? '<i class="fas fa-camera"></i>' : '<i class="fas fa-video-slash"></i>';
+        document.getElementById('toggleCameraBtn').innerHTML = enabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
     }
 });
 document.getElementById('switchCameraBtn')?.addEventListener('click', triggerCameraSwitch);
+document.getElementById('toggleScreenShareBtn')?.addEventListener('click', toggleScreenShare);
 
 const circleRecordBtnGlobal = document.getElementById('circleRecordBtn');
 if (circleRecordBtnGlobal) {
@@ -1906,6 +2117,7 @@ if (btnStep2) {
             }
             
             await signInWithEmailAndPassword(auth, email, pass);
+            saveAccountToStorage({ uid: users.docs[0].id, ...userData, email }, pass);
         } catch(e) { 
             console.error("Auth Error:", e);
             if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
@@ -1952,6 +2164,7 @@ if (btnRegister) {
                 online: true 
             });
             showDynamicIsland('Регистрация успешна!', 'success');
+            saveAccountToStorage({ uid: user.user.uid, name, username, email }, pass);
             // Auto-subscribe to SPARK channel
             subscribeToSparkChannel(user.user.uid, name, username);
         } catch(e) { showDynamicIsland(e.message, 'error'); }
@@ -1967,14 +2180,111 @@ if (logoutSettingsButton) {
             if (unsubMessages) unsubMessages();
             if (unsubChats) unsubChats();
             if (onlineStatusInterval) clearInterval(onlineStatusInterval);
+            removeAccountFromStorage(currentUser?.uid);
+            currentUser = null;
             const appContainer = document.getElementById('app');
             if (appContainer) appContainer.style.display = 'none';
+            document.body.classList.remove('logged-in');
+            showScreen(0);
+        }
+    });
+}
+
+// ========== СИСТЕМА АККАУНТОВ (как Telegram) ==========
+function getSavedAccounts() {
+    try { return JSON.parse(localStorage.getItem('spark-accounts') || '[]'); } catch { return []; }
+}
+
+function saveAccountToStorage(userData, password) {
+    const accounts = getSavedAccounts();
+    const existing = accounts.findIndex(a => a.uid === userData.uid);
+    const accountData = {
+        uid: userData.uid,
+        name: userData.name || '',
+        username: userData.username || '',
+        avatarUrl: userData.avatarUrl || '',
+        email: userData.email || '',
+        password: password || ''
+    };
+    if (existing >= 0) {
+        accounts[existing] = { ...accounts[existing], ...accountData };
+    } else {
+        accounts.push(accountData);
+    }
+    localStorage.setItem('spark-accounts', JSON.stringify(accounts));
+}
+
+function removeAccountFromStorage(uid) {
+    const accounts = getSavedAccounts().filter(a => a.uid !== uid);
+    localStorage.setItem('spark-accounts', JSON.stringify(accounts));
+}
+
+function renderDrawerAccounts() {
+    const list = document.getElementById('drawerAccountList');
+    if (!list) return;
+    const accounts = getSavedAccounts();
+    const currentUid = currentUser?.uid;
+    list.innerHTML = accounts.map(a => `
+        <div class="drawer-account-item${a.uid === currentUid ? ' active' : ''}" data-uid="${a.uid}" data-email="${a.email || ''}" data-password="${a.password || ''}" style="display:flex;align-items:center;gap:12px;padding:8px 16px;cursor:pointer;border-radius:10px;${a.uid === currentUid ? 'background:rgba(255,255,255,0.08);' : ''}transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='${a.uid === currentUid ? 'rgba(255,255,255,0.08)' : 'transparent'}'">
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#333,#111);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:700;flex-shrink:0;overflow:hidden;">
+                ${a.avatarUrl ? `<img src="${a.avatarUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;">${(a.name || a.username || '?')[0].toUpperCase()}</div>` : (a.name || a.username || '?')[0].toUpperCase()}
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name || 'Без имени'}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.username || ''}</div>
+            </div>
+            ${a.uid === currentUid ? '<i class="fas fa-check" style="font-size:12px;color:rgba(255,255,255,0.5);"></i>' : '<i class="fas fa-chevron-right" style="font-size:10px;color:rgba(255,255,255,0.2);"></i>'}
+        </div>
+    `).join('');
+
+    list.querySelectorAll('.drawer-account-item').forEach(el => {
+        el.addEventListener('click', async () => {
+            const uid = el.dataset.uid;
+            const email = el.dataset.email;
+            const password = el.dataset.password;
+            if (uid === currentUid) return;
+            
+            if (email && password) {
+                closeHamburger();
+                showDynamicIsland('Переключение аккаунта...', 'info');
+                await setOfflineStatus();
+                if (unsubMessages) unsubMessages();
+                if (unsubChats) unsubChats();
+                if (onlineStatusInterval) clearInterval(onlineStatusInterval);
+                currentUser = null;
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    location.reload();
+                } catch (e) {
+                    showDynamicIsland('Ошибка переключения: ' + (e.message || e.code), 'error');
+                    location.reload();
+                }
+            } else {
+                closeHamburger();
+                showDynamicIsland('Пароль не сохранён. Войдите заново.', 'error');
+            }
+        });
+    });
+}
+
+const addAccountBtn = document.getElementById('drawerAddAccountBtn');
+if (addAccountBtn) {
+    addAccountBtn.addEventListener('click', async () => {
+        closeHamburger();
+        if (confirm('Добавить новый аккаунт? Текущий аккаунт будет сохранён.')) {
+            await setOfflineStatus();
+            if (unsubMessages) unsubMessages();
+            if (unsubChats) unsubChats();
+            if (onlineStatusInterval) clearInterval(onlineStatusInterval);
+            await signOut(auth);
+            location.reload();
         }
     });
 }
 
 // ========== UI HELPERS ==========
 document.getElementById('tab-chats-btn')?.addEventListener('click', (e) => switchTab('chats', e.currentTarget));
+document.getElementById('tab-feed-btn')?.addEventListener('click', (e) => { switchTab('feed', e.currentTarget); loadFeed(); });
 document.getElementById('tab-settings-btn')?.addEventListener('click', (e) => switchTab('settings', e.currentTarget));
 document.getElementById('btn-profile-edit')?.addEventListener('click', () => openPanel('profile'));
 document.getElementById('btn-theme-edit')?.addEventListener('click', () => openPanel('appearance'));
@@ -2002,6 +2312,7 @@ function openHamburgerDrawer() {
         renderAvatar(document.getElementById('drawerAvatar'), { avatarUrl: currentUser.avatarUrl, name: currentUser.name });
         const dn = document.getElementById('drawerName'); if (dn) dn.textContent = currentUser.name;
         const du = document.getElementById('drawerUsername'); if (du) du.textContent = '@' + (currentUser.username || '');
+        renderDrawerAccounts();
     }
 }
 document.getElementById('btnHamburger')?.addEventListener('click', openHamburgerDrawer);
@@ -2209,7 +2520,7 @@ function openChannel(id, name, channelData) {
     
     // Hide call buttons for channels
     const actions = document.getElementById('chatHeaderActions');
-    if (actions) { actions.classList.remove('open'); actions.style.display = 'none'; }
+    if (actions) { actions.style.display = 'none'; }
     
     // Check if user can write
     const isOwner = channelData.ownerId === currentUser.uid;
@@ -2250,10 +2561,10 @@ function openChannel(id, name, channelData) {
                 
                 if (msg.type === 'image') {
                     let src = getBlobUrlFromBase64(msg.content || msg.url);
-                    content = `<div class="msg-image-wrap"><img src="${src}" onclick="window.open(this.src,'_blank')"></div>`;
+                    content = `<div class="msg-image-wrap"><img src="${src}" onclick="event.stopPropagation();const v=document.getElementById('mediaViewerOverlay');const i=document.getElementById('mediaViewerImg');const vid=document.getElementById('mediaViewerVideo');i.src=this.src;i.style.display='block';vid.style.display='none';v.style.display='flex'"></div>`;
                 } else if (msg.type === 'video') {
                     let src = getBlobUrlFromBase64(msg.content || msg.url);
-                    content = `<video src="${src}" controls playsinline webkit-playsinline style="max-width:200px;max-height:200px;border-radius:16px;"></video>`;
+                    content = `<div style="max-width:280px;cursor:pointer;border-radius:12px;overflow:hidden;" onclick="event.stopPropagation();const v=document.getElementById('mediaViewerOverlay');const vid=document.getElementById('mediaViewerVideo');const img=document.getElementById('mediaViewerImg');vid.src='${src}';vid.style.display='block';img.style.display='none';v.style.display='flex';vid.play().catch(()=>{})"><video src="${src}" preload="metadata" playsinline webkit-playsinline style="width:100%;max-height:240px;border-radius:12px;"></video></div>`;
                 } else if (msg.type === 'circle') {
                     const src = msg.content && !msg.content.startsWith('data:') ? msg.content : getBlobUrlFromBase64(msg.content || msg.url);
                     content = createCirclePlayerHTML(src);
@@ -2262,7 +2573,12 @@ function openChannel(id, name, channelData) {
                     content = `<a href="${src}" download="${msg.fileName}" target="_blank" class="file-message"><i class="fas fa-file"></i><span>${escape(msg.fileName)}</span><i class="fas fa-download"></i></a>`;
                 } else if (msg.type === 'voice') {
                     const audioSrc = getBlobUrlFromBase64(msg.content);
-                    content = `<audio controls preload="metadata" playsinline src="${audioSrc}" style="max-width:220px;height:40px;border-radius:20px;"></audio>`;
+                    const waveId = 'wave_' + Math.random().toString(36).substr(2,8);
+                    content = `<div class="voice-msg-wrap" data-audio-src="${audioSrc}" data-wave-id="${waveId}">
+                        <button class="voice-play-btn" onclick="event.stopPropagation();toggleVoiceMsg(this)"><i class="fas fa-play"></i></button>
+                        <div class="voice-waveform" id="${waveId}"></div>
+                        <span class="voice-duration">0:00</span>
+                    </div>`;
                 } else if (msg.type === 'system') {
                     content = `<div class="message-text" style="font-style: italic; opacity: 0.7;">${escape(msg.text)}</div>`;
                 } else {
@@ -2285,38 +2601,43 @@ function openChannel(id, name, channelData) {
                 if (msg.replyTo) {
                     const replySnippet = msg.replyToText ? escape(msg.replyToText).substring(0, 80) : '';
                     const replySender = msg.replyToSenderName ? escape(msg.replyToSenderName) : '';
-                    replyHtml = `<div class="reply-quote" style="border-left:3px solid var(--accent);padding:4px 10px;margin-bottom:6px;border-radius:4px;background:rgba(108,92,231,0.08);font-size:12px;"><div style="font-weight:600;color:var(--accent);font-size:11px;">${replySender}</div><div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">${replySnippet}</div></div>`;
+                    replyHtml = `<div class="reply-quote" style="border-left:3px solid var(--accent);padding:4px 10px;margin-bottom:6px;border-radius:4px;background:rgba(255,255,255,0.08);font-size:12px;"><div style="font-weight:600;color:var(--accent);font-size:11px;">${replySender}</div><div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">${replySnippet}</div></div>`;
                 }
                 let forwardHtml = '';
                 if (msg.forwardedFrom) {
                     forwardHtml = `<div style="font-size:11px;color:var(--accent);font-weight:600;margin-bottom:4px;"><i class="fas fa-share" style="margin-right:4px;font-size:10px;"></i>Переслано от ${escape(msg.forwardedFrom)}</div>`;
                 }
-                bubble.innerHTML = `<div>${senderLabel}${forwardHtml}${replyHtml}${content}</div><div class="message-time">${msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || ''}</div>`;
+                bubble.innerHTML = `<div>${senderLabel}${forwardHtml}${replyHtml}${content}</div><div class="message-time">${msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || ''}${getReadCheckHtml(msg, isMy)}</div>`;
                 
                 if (msg.type === 'circle') initCirclePlayer(bubble);
                 
                 if (isMy && msg.type !== 'system' && msg.type !== 'circle') {
-                    bubble.addEventListener('click', (e) => {
-                        e.stopPropagation();
+                    setupLongPress(bubble, (e) => {
+                        e.preventDefault();
                         const msgMenu = document.getElementById('messageContextMenu');
                         const editBtn = document.getElementById('btnMsgEdit');
                         if (editBtn) editBtn.style.display = msg.type === 'text' && isMy ? 'flex' : 'none';
                         editingMessageId = msg.id;
                         window._editingMsgText = msg.text || '';
                         window._editingMsgData = msg;
-                        showContextMenu(msgMenu, e.clientX, e.clientY);
+                        const x = e.touches?.[0]?.clientX || e.clientX;
+                        const y = e.touches?.[0]?.clientY || e.clientY;
+                        showContextMenu(msgMenu, x, y);
                     });
                 }
                 if (!isMy && msg.type !== 'system' && msg.type !== 'circle') {
-                    bubble.addEventListener('click', (e) => {
-                        e.stopPropagation();
+                    setupLongPress(bubble, (e) => {
+                        e.preventDefault();
                         const bar = document.getElementById('msgActionBar');
                         if (!bar) return;
                         bar.style.display = 'flex';
-                        const bw = 280, bh = 44;
-                        let left = Math.max(10, Math.min(e.clientX - bw/2, window.innerWidth - bw - 10));
-                        let top = e.clientY - bh - 12;
-                        if (top < 10) top = e.clientY + 12;
+                        const bw = 280;
+                        const bubbleRect = bubble.getBoundingClientRect();
+                        let left = bubbleRect.right - bw;
+                        let top = bubbleRect.bottom + 8;
+                        if (left < 10) left = 10;
+                        if (left + bw > window.innerWidth - 10) left = window.innerWidth - bw - 10;
+                        if (top + 200 > window.innerHeight) top = bubbleRect.top - 8 - 200;
                         bar.style.left = left + 'px';
                         bar.style.top = Math.max(10, top) + 'px';
                         bar.dataset.msgId = msg.id;
@@ -2490,46 +2811,25 @@ async function registerCurrentDevice() {
 // QR Code generation (simple canvas-based)
 function generateQR(text, canvas) {
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const size = 200;
-    canvas.width = size;
-    canvas.height = size;
-    
-    // Simple hash-based QR-like pattern
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, size, size);
-    ctx.fillStyle = '#000000';
-    
-    const cellSize = 8;
-    const hash = text.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0);
-    let seed = Math.abs(hash);
-    
-    for (let y = 0; y < size; y += cellSize) {
-        for (let x = 0; x < size; x += cellSize) {
-            // Position markers
-            const isMarker = (x < 48 && y < 48) || (x > size - 48 && y < 48) || (x < 48 && y > size - 48);
-            if (isMarker) {
-                const mx = x % 48, my = y % 48;
-                const isBorder = mx === 0 || my === 0 || mx >= 40 || my >= 40;
-                const isInner = mx >= 12 && mx <= 28 && my >= 12 && my <= 28;
-                if (isBorder || isInner) {
-                    ctx.fillRect(x, y, cellSize, cellSize);
-                }
-            } else {
-                seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-                if (seed % 3 !== 0) ctx.fillRect(x, y, cellSize, cellSize);
-            }
-        }
+    const container = canvas.parentElement;
+    if (!container) return;
+    canvas.style.display = 'none';
+    if (typeof QRCode !== 'undefined') {
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'inline-block';
+        wrapper.style.background = '#fff';
+        wrapper.style.padding = '12px';
+        wrapper.style.borderRadius = '12px';
+        container.replaceChild(wrapper, canvas);
+        new QRCode(wrapper, { text, width: 200, height: 200, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M });
+    } else {
+        canvas.style.display = 'block';
+        const ctx = canvas.getContext('2d');
+        canvas.width = 200; canvas.height = 200;
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 200, 200);
+        ctx.fillStyle = '#000'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('QR-код недоступен', 100, 100);
     }
-    
-    // Center icon
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(size/2 - 16, size/2 - 16, 32, 32);
-    ctx.fillStyle = '#000000';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('★', size/2, size/2);
 }
 
 document.getElementById('btnShowQR')?.addEventListener('click', () => {
@@ -2832,13 +3132,39 @@ async function initSparkChannel() {
 // ========== УЛУЧШЕННАЯ ИНФО ПРОФИЛЯ ==========
 async function openProfileModal(userId) {
     if (!userId) return;
+    window._currentProfileModalUserId = userId;
     const userDoc = await getDoc(doc(db, "users", userId));
     if (!userDoc.exists()) return;
     const u = userDoc.data();
     const name = await getCustomNameForUser(userId);
     
     renderAvatar(document.getElementById('modalTargetAvatar'), { avatarUrl: u.avatarUrl, name });
-    document.getElementById('modalTargetName').textContent = name;
+    document.getElementById('modalTargetName').innerHTML = name + getPremiumBadge(u);
+    
+    // Show custom subscription label if exists
+    const myUserDoc = await getDoc(doc(db, "users", currentUser.uid));
+    const myData = myUserDoc.data();
+    const customSub = (myData.customSubscriptions || []).find(s => s.userId === userId);
+    const labelEl = document.getElementById('modalSubscriptionLabel');
+    if (labelEl) {
+        if (customSub) {
+            labelEl.textContent = customSub.name;
+            labelEl.style.display = 'block';
+        } else {
+            labelEl.style.display = 'none';
+        }
+    }
+    
+    const modalBgImg = document.getElementById('modalProfileBgImg');
+    const modalBgWrap = document.getElementById('modalProfileBg');
+    if (modalBgImg && modalBgWrap) {
+        if (u.profileBgUrl) {
+            modalBgImg.src = u.profileBgUrl;
+            modalBgImg.style.display = 'block';
+        } else {
+            modalBgImg.style.display = 'none';
+        }
+    }
     const modalUser = document.getElementById('modalTargetUser');
     if (modalUser) { modalUser.style.display = 'block'; modalUser.textContent = u.username || ''; }
     document.getElementById('modalTargetBio').textContent = u.bio || t('noInfo');
@@ -2931,6 +3257,26 @@ document.getElementById('chatTargetAvatar')?.addEventListener('click', async (e)
     openProfileModal(currentChatOtherId);
 });
 
+document.getElementById('btnSetSubscription')?.addEventListener('click', async () => {
+    const userId = window._currentProfileModalUserId;
+    if (!userId || !currentUser) return;
+    
+    const myUserDoc = await getDoc(doc(db, "users", currentUser.uid));
+    const myData = myUserDoc.data();
+    const existing = (myData.customSubscriptions || []).find(s => s.userId === userId);
+    
+    const newName = prompt('Введите подпись (например: Мама, Папа, Друг):', existing?.name || '');
+    if (newName && newName.trim()) {
+        await addCustomSubscription(userId, newName.trim());
+        const labelEl = document.getElementById('modalSubscriptionLabel');
+        if (labelEl) { labelEl.textContent = newName.trim(); labelEl.style.display = 'block'; }
+    } else if (newName === '') {
+        await removeCustomSubscription(userId);
+        const labelEl = document.getElementById('modalSubscriptionLabel');
+        if (labelEl) labelEl.style.display = 'none';
+    }
+});
+
 // ========== PUSH-УВЕДОМЛЕНИЯ ==========
 let notifUnsub = null;
 function startNotificationsListener(userId) {
@@ -3006,61 +3352,72 @@ function setupForegroundNotifications() {
 // ========== AUTH STATE ==========
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        let docUser = await getDoc(doc(db, "users", user.uid));
-        if (docUser.exists()) {
-            currentUser = { uid: user.uid, ...docUser.data() };
-            
-            // Restore app state and settings
-            applySavedTheme();
-            applySavedLanguage();
-            applySavedWallpaper();
-            syncProfile(currentUser);
-            
-            // UI elements specific to logged in user
-            const myNameDisplay = document.getElementById('myNameDisplay');
-            if (myNameDisplay) myNameDisplay.textContent = currentUser.name;
-            const myUserDisplay = document.getElementById('myUserDisplay');
-            if (myUserDisplay) myUserDisplay.textContent = currentUser.username;
-            
-            // Load data
-            loadChats();
-            loadUserAvatar();
-            listenToIncomingCalls(currentUser);
-            startNotificationsListener(user.uid);
-            saveFCMToken(user.uid);
-            setupForegroundNotifications();
-            registerCurrentDevice();
-            initSparkChannel();
-            updateFaceIdStatus();
-            applyCustomSettings();
-            loadPremiumStatus();
-            if (isPremium(currentUser) || isCreator(currentUser)) setupAutoTranslate();
-            
-            // Show admin premium button for creator only
-            if (isCreator(currentUser)) {
-                const adminBtn = document.getElementById('btn-admin-premium-edit');
-                if (adminBtn) adminBtn.style.display = 'block';
-            }
-            
-            // Start online status heartbeat
-            onlineStatusInterval = setInterval(updateOnlineStatus, 15000);
-            updateOnlineStatus();
+        // ===== SHOW APP IMMEDIATELY — don't let async failures block UI =====
+        document.body.classList.add('logged-in');
+        const appContainer = document.getElementById('app');
+        if (appContainer) appContainer.style.display = 'flex';
 
-            const appContainer = document.getElementById('app');
-            if (appContainer) {
-                appContainer.style.display = 'flex';
+        // Remove splash immediately so it never blocks clicks
+        const splashEl = document.getElementById('splash');
+        if (splashEl) splashEl.remove();
+        const splashOverlayEl = document.getElementById('splashOverlay');
+        if (splashOverlayEl) splashOverlayEl.remove();
+
+        // Hide auth screens — don't remove them so they can be shown again on logout
+        document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+
+        try {
+            let docUser = await getDoc(doc(db, "users", user.uid));
+            if (docUser.exists()) {
+                currentUser = { uid: user.uid, ...docUser.data() };
+                saveAccountToStorage(currentUser);
+                renderDrawerAccounts();
+
+                // Restore app state and settings
+                applySavedTheme();
+                applySavedLanguage();
+                applySavedWallpaper();
+                syncProfile(currentUser);
+                
+                // UI elements specific to logged in user
+                const myNameDisplay = document.getElementById('myNameDisplay');
+                if (myNameDisplay) myNameDisplay.innerHTML = currentUser.name + getPremiumBadge(currentUser);
+                const myUserDisplay = document.getElementById('myUserDisplay');
+                if (myUserDisplay) myUserDisplay.textContent = currentUser.username;
+                
+                // Load data
+                loadChats();
+                loadUserAvatar();
+                loadProfileBg(currentUser.profileBgUrl);
+                listenToIncomingCalls(currentUser);
+                startNotificationsListener(user.uid);
+                saveFCMToken(user.uid);
+                setupForegroundNotifications();
+                registerCurrentDevice();
+                initSparkChannel();
+                updateFaceIdStatus();
+                applyCustomSettings();
+                loadPremiumStatus();
+                if (isPremium(currentUser) || isCreator(currentUser)) setupAutoTranslate();
+                
+                // Show admin premium button for creator only
+                if (isCreator(currentUser)) {
+                    const adminBtn = document.getElementById('btn-admin-premium-edit');
+                    if (adminBtn) adminBtn.style.display = 'block';
+                }
+                
+                // Start online status heartbeat
+                onlineStatusInterval = setInterval(updateOnlineStatus, 15000);
+                updateOnlineStatus();
+            } else {
+                showDynamicIsland('Профиль не найден', 'error');
             }
-            
-            // Hide auth screens
-            const authScreens = document.querySelectorAll('.screen');
-            authScreens.forEach(s => s.style.display = 'none');
-            
-            // Hide splash screen if it's still there
-            const splash = document.getElementById('splash');
-            if (splash) splash.style.display = 'none';
+        } catch (e) {
+            console.error("Auth state error:", e);
         }
     } else {
         currentUser = null;
+        document.body.classList.remove('logged-in');
         if (onlineStatusInterval) clearInterval(onlineStatusInterval);
         const appContainer = document.getElementById('app');
         if (appContainer) appContainer.style.display = 'none';
@@ -3081,7 +3438,7 @@ async function loadPremiumStatus() {
         if (data?.premium) {
             const activated = data.premiumActivatedAt?.toDate?.() || new Date(data.premiumActivatedAt);
             if (statusText) {
-                statusText.innerHTML = `<span style="color:#6c5ce7;font-weight:700;">Активирован</span> ${activated ? '· ' + activated.toLocaleDateString('ru-RU') : ''}`;
+                statusText.innerHTML = `<span style="color:#ffffff;font-weight:700;">Активирован</span> ${activated ? '· ' + activated.toLocaleDateString('ru-RU') : ''}`;
             }
             const uploadBtn = document.getElementById('btnUploadReceipt');
             const activateBtn = document.getElementById('btnActivatePremium');
@@ -3119,6 +3476,44 @@ document.querySelectorAll('.premium-plan-option').forEach(opt => {
 // Auto-select month
 const defaultPlan = document.querySelector('.premium-plan-option[data-plan="month"]');
 if (defaultPlan) { defaultPlan.classList.add('selected'); defaultPlan.querySelector('input[type=radio]').checked = true; }
+
+// Payment QR code
+document.getElementById('btnShowPaymentQR')?.addEventListener('click', () => {
+    const modal = document.getElementById('paymentQRModal');
+    const container = document.getElementById('paymentQRContainer');
+    const amountEl = document.getElementById('paymentQRAmount');
+    const commentEl = document.getElementById('paymentQRComment');
+    if (!modal || !container) return;
+
+    const prices = { month: '100', year: '500', forever: '1000' };
+    const price = prices[selectedPlan] || '100';
+    const phone = '79266625807';
+    const username = currentUser?.username || 'user';
+    const paymentUrl = `https://www.tinkoff.ru/to/${phone}?amount=${price}&comment=${encodeURIComponent(username)}`;
+
+    container.innerHTML = '';
+    amountEl.textContent = price + ' ₽';
+    commentEl.textContent = '@' + username;
+
+    if (typeof QRCode !== 'undefined') {
+        new QRCode(container, {
+            text: paymentUrl,
+            width: 220,
+            height: 220,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    } else {
+        container.innerHTML = '<p style="color:#333;padding:40px;">QR-код недоступен</p>';
+    }
+
+    modal.classList.add('active');
+});
+
+document.getElementById('btnClosePaymentQR')?.addEventListener('click', () => {
+    document.getElementById('paymentQRModal')?.classList.remove('active');
+});
 
 // Receipt preview
 document.getElementById('btnUploadReceipt')?.addEventListener('click', () => {
@@ -3164,7 +3559,7 @@ document.getElementById('btnActivatePremium')?.addEventListener('click', async (
             createdAt: new Date().toISOString()
         });
         
-        if (msg) { msg.style.display = 'block'; msg.textContent = 'AI проверяет квитанцию...'; msg.style.color = '#6c5ce7'; }
+        if (msg) { msg.style.display = 'block'; msg.textContent = 'AI проверяет квитанцию...'; msg.style.color = '#ffffff'; }
         showDynamicIsland('AI проверяет квитанцию...', 'info');
         
         // Auto AI verification
@@ -3212,6 +3607,8 @@ async function autoVerifyReceipt(receiptId, receiptUrl, plan) {
             await updateDoc(doc(db, "premiumReceipts", receiptId), { status: "approved", reviewedAt: new Date().toISOString(), reviewedBy: 'ai-bot' });
             await updateDoc(doc(db, "users", currentUser.uid), { premium: true, premiumActivatedAt: new Date().toISOString(), premiumActivatedBy: 'ai-bot' });
             currentUser.premium = true;
+            const myNameDisplay = document.getElementById('myNameDisplay');
+            if (myNameDisplay) myNameDisplay.innerHTML = currentUser.name + getPremiumBadge(currentUser);
             if (msg) { msg.innerHTML = '<span style="color:#2ecc71;">Premium активирован! (AI подтвердил)</span>'; }
             showDynamicIsland('Premium активирован! AI подтвердил квитанцию.', 'success');
             const uploadBtn = document.getElementById('btnUploadReceipt');
@@ -3611,10 +4008,10 @@ document.getElementById('btnAdminPremiumSearch')?.addEventListener('click', asyn
                 div.innerHTML = `
                     <div style="flex:1;">
                         <div style="font-weight:600;font-size:14px;">${escape(u.name || u.username)}</div>
-                        <div style="font-size:12px;color:var(--text-secondary);">${escape(u.username || '')} ${isPrem ? '<span style="color:#6c5ce7;font-weight:700;">Premium</span>' : ''}</div>
+                        <div style="font-size:12px;color:var(--text-secondary);">${escape(u.username || '')} ${isPrem ? '<span style="color:#ffffff;font-weight:700;">Premium</span>' : ''}</div>
                     </div>
                     <button class="btn admin-grant-premium" data-uid="${u.uid}" data-name="${escape(u.name || u.username)}" data-action="${isPrem ? 'revoke' : 'grant'}" 
-                        style="padding:8px 14px;font-size:12px;width:auto;background:${isPrem ? '#ff3b30' : '#6c5ce7'};color:#fff;">
+                        style="padding:8px 14px;font-size:12px;width:auto;background:${isPrem ? '#ff3b30' : '#ffffff'};color:#fff;">
                         ${isPrem ? '<i class="fas fa-times"></i> Снять' : '<i class="fas fa-star"></i> Выдать'}
                     </button>
                 `;
@@ -3646,9 +4043,10 @@ document.getElementById('btnAdminPremiumSearch')?.addEventListener('click', asyn
                         });
                         showDynamicIsland(`Premium снят у ${name}`, 'info');
                     }
-                    // Refresh search results
+                    // Refresh search results and reload chats
                     document.getElementById('btnAdminPremiumSearch')?.click();
                     loadAdminPremiumList();
+                    loadChats();
                 } catch (e) {
                     showDynamicIsland('Ошибка', 'error');
                 }
@@ -3681,7 +4079,7 @@ async function loadAdminPremiumList() {
             const div = document.createElement('div');
             div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px;';
             div.innerHTML = `
-                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#6c5ce7,#a29bfe);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;flex-shrink:0;"><i class="fas fa-star"></i></div>
+                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#ffffff,#333333);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;flex-shrink:0;"><i class="fas fa-star"></i></div>
                 <div style="flex:1;">
                     <div style="font-weight:600;font-size:14px;">${escape(u.name || u.username)}</div>
                     <div style="font-size:12px;color:var(--text-secondary);">${escape(u.username || '')} · Активирован ${activated}</div>
@@ -3829,7 +4227,7 @@ async function loadAdminReceiptsList() {
 
 // ========== КАСТОМ (PREMIUM) ==========
 let customWallpaperData = null;
-const CARD_COLORS = ['#6c5ce7','#00b894','#0984e3','#e17055','#fdcb6e','#e84393','#00cec9','#d63031','#2d3436','#636e72'];
+const CARD_COLORS = ['#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff'];
 
 async function loadCustomSettings() {
     if (!currentUser) return;
@@ -3864,7 +4262,7 @@ async function loadCustomSettings() {
         const colorsContainer = document.getElementById('customCardColors');
         if (colorsContainer) {
             colorsContainer.innerHTML = '';
-            const currentColor = data.customCardColor || '#6c5ce7';
+            const currentColor = data.customCardColor || '#ffffff';
             CARD_COLORS.forEach(color => {
                 const sq = document.createElement('div');
                 sq.style.cssText = `width:36px;height:36px;border-radius:50%;background:${color};cursor:pointer;border:3px solid ${color === currentColor ? '#fff' : 'transparent'};transition:border-color 0.2s;`;
@@ -3927,7 +4325,7 @@ document.getElementById('btnSaveCustom')?.addEventListener('click', async () => 
     if (!currentUser) return;
     const opacity = parseInt(document.getElementById('customOpacity')?.value || '100');
     const colorsEl = document.getElementById('customCardColors');
-    const cardColor = colorsEl?.dataset?.selected || '#6c5ce7';
+    const cardColor = colorsEl?.dataset?.selected || '#ffffff';
     
     try {
         const updateData = { customOpacity: opacity, customCardColor: cardColor };
@@ -3970,12 +4368,10 @@ document.getElementById('btnSaveCustom')?.addEventListener('click', async () => 
 function applyCustomSettings() {
     if (!currentUser) return;
     const opacity = currentUser.customOpacity ?? 100;
-    const cardColor = currentUser.customCardColor;
     const wallpaper = currentUser.customWallpaper;
     
-    if (cardColor) {
-        document.documentElement.style.setProperty('--accent', cardColor);
-    }
+    document.documentElement.style.setProperty('--accent', '#ffffff');
+    document.documentElement.style.setProperty('--accent-soft', 'rgba(255,255,255,0.12)');
     document.querySelectorAll('.card, .glass-panel, .search-box, .switch-container, .footer').forEach(el => {
         el.style.opacity = opacity < 100 ? String(opacity / 100) : '';
     });
@@ -4086,6 +4482,16 @@ document.getElementById('reactionPicker')?.querySelectorAll('.reaction-emoji').f
     btn.addEventListener('mouseleave', () => { btn.style.transform = 'scale(1)'; });
 });
 
+document.querySelectorAll('.reaction-quick').forEach(btn => {
+    btn.addEventListener('mouseenter', () => { btn.style.transform = 'scale(1.3)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.transform = 'scale(1)'; });
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (editingMessageId) toggleReaction(editingMessageId, btn.dataset.reaction);
+        hideAllContextMenus();
+    });
+});
+
 document.addEventListener('click', () => {
     const picker = document.getElementById('reactionPicker');
     if (picker) picker.style.display = 'none';
@@ -4105,4 +4511,476 @@ document.addEventListener('pointerdown', (e) => {
     document.addEventListener('pointercancel', cancel);
 });
 
-// SPARK v2.0.2
+// Swipe left on message bubble → context menu (mobile)
+(function() {
+    let touchStartX = 0, touchStartY = 0;
+    document.addEventListener('touchstart', (e) => {
+        const bubble = e.target.closest('.message-bubble');
+        if (!bubble) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', (e) => {
+        const bubble = e.target.closest('.message-bubble');
+        if (!bubble) return;
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+        if (dx < -60 && dy < 50) {
+            const msgDiv = bubble.closest('[data-msg-id]');
+            if (!msgDiv) return;
+            const msgId = msgDiv.dataset.msgId;
+            const msgData = window._editingMsgData || {};
+            editingMessageId = msgId;
+            window._editingMsgData = JSON.parse(msgDiv.dataset.msgJson || '{}');
+            const msgMenu = document.getElementById('messageContextMenu');
+            const editBtn = document.getElementById('btnMsgEdit');
+            const touch = e.changedTouches[0];
+            if (editBtn) editBtn.style.display = 'flex';
+            if (msgMenu) showContextMenu(msgMenu, touch.clientX, touch.clientY);
+        }
+    });
+})();
+
+// SPARK v2.0.5
+
+// ========== ДОБАВИТЬ ЧЕЛОВЕКА В ЗВОНОК ==========
+const btnAddToCall = document.getElementById('btnAddToCall');
+const addPersonCallModal = document.getElementById('addPersonCallModal');
+const addPersonCallSearch = document.getElementById('addPersonCallSearch');
+const addPersonCallResults = document.getElementById('addPersonCallResults');
+
+if (btnAddToCall) {
+    btnAddToCall.addEventListener('click', () => {
+        if (addPersonCallModal) addPersonCallModal.classList.add('active');
+        if (addPersonCallSearch) { addPersonCallSearch.value = ''; addPersonCallSearch.focus(); }
+    });
+}
+
+if (addPersonCallSearch) {
+    addPersonCallSearch.addEventListener('input', async (e) => {
+        const q = e.target.value.trim().toLowerCase();
+        if (!addPersonCallResults || q.length < 1) { addPersonCallResults.innerHTML = ''; return; }
+        try {
+            const usersSnap = await getDocs(query(collection(db, "users"), where("username", ">=", q), where("username", "<=", q + '\uf8ff')));
+            addPersonCallResults.innerHTML = '';
+            usersSnap.forEach(d => {
+                const u = d.data();
+                if (u.uid === currentUser?.uid) return;
+                const item = document.createElement('div');
+                item.className = 'search-item';
+                item.style.cssText = 'padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);cursor:pointer;';
+                item.innerHTML = `<div><strong style="color:var(--text);font-size:14px;">${escape(u.name || u.username)}</strong><br><small style="color:var(--text-secondary);font-size:12px;">@${escape(u.username)}</small></div>
+                    <button class="small-btn" style="font-size:11px;">Пригласить</button>`;
+                item.querySelector('.small-btn').addEventListener('click', async () => {
+                    try {
+                        if (currentCallId) {
+                            await updateDoc(doc(db, "calls", currentCallId), { targetId: u.uid, status: "calling" });
+                            showDynamicIsland(`Приглашение отправлено ${u.name || u.username}`, 'success');
+                        }
+                    } catch (err) { console.error('Invite error:', err); }
+                    addPersonCallModal.classList.remove('active');
+                });
+                addPersonCallResults.appendChild(item);
+            });
+            if (addPersonCallResults.children.length === 0) {
+                addPersonCallResults.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-secondary);font-size:13px;">Пользователь не найден</div>';
+            }
+        } catch (err) { console.warn('Search error:', err); }
+    });
+}
+
+// ========== ПРОФИЛЬ — ФОН С ИЗОБРАЖЕНИЕМ ==========
+function compressProfileBg(file, maxWidth, quality) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                        else reject(new Error('Canvas toBlob failed'));
+                    }, 'image/jpeg', quality || 0.75);
+                } catch (err) { reject(err); }
+            };
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('FileReader failed'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function enhanceImageWithCanvas(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width; canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.min(255, data[i] * 1.05);
+                        data[i + 1] = Math.min(255, data[i + 1] * 1.05);
+                        data[i + 2] = Math.min(255, data[i + 2] * 1.05);
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                        else reject(new Error('Canvas toBlob failed'));
+                    }, 'image/jpeg', 0.85);
+                } catch (err) { reject(err); }
+            };
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('FileReader failed'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function loadProfileBg(url) {
+    const img = document.getElementById('profileBgImg');
+    const placeholder = document.getElementById('profileBgPlaceholder');
+    if (!img || !placeholder) return;
+    if (url) {
+        img.src = url;
+        img.style.display = 'block';
+        placeholder.style.display = 'none';
+    } else {
+        img.style.display = 'none';
+        placeholder.style.display = 'flex';
+    }
+}
+
+function setupProfileBackground() {
+    const profileBgEdit = document.getElementById('profileBgEditBtn');
+    const profileBgInput = document.getElementById('profileBgInput');
+    if (profileBgEdit && profileBgInput) {
+        profileBgEdit.addEventListener('click', () => profileBgInput.click());
+        profileBgInput.addEventListener('change', async (e) => {
+            const file = e.target.files?.[0];
+            if (!file || !currentUser) return;
+            showDynamicIsland('Обработка изображения...', 'file');
+            try {
+                let processed = await compressProfileBg(file, 1200, 0.8);
+                processed = await enhanceImageWithCanvas(processed);
+                const { ref: storageRefFn, uploadBytes, getDownloadURL } = await import('./vendor/firebase/firebase-storage.js');
+                const storage = getStorage();
+                const fileRef = storageRefFn(storage, `profile-bg/${currentUser.uid}`);
+                await uploadBytes(fileRef, processed);
+                const url = await getDownloadURL(fileRef);
+                await updateDoc(doc(db, "users", currentUser.uid), { profileBgUrl: url });
+                loadProfileBg(url);
+                currentUser.profileBgUrl = url;
+                showDynamicIsland('Фон профиля обновлён', 'success');
+            } catch (err) {
+                console.error('Profile bg upload error:', err);
+                showDynamicIsland('Ошибка загрузки', 'error');
+            }
+        });
+    }
+    if (currentUser?.profileBgUrl) loadProfileBg(currentUser.profileBgUrl);
+}
+
+setTimeout(setupProfileBackground, 1500);
+
+// ========== FEED / ЛЕНТА ==========
+let feedPostMediaData = null;
+
+document.getElementById('btnCreatePost')?.addEventListener('click', () => {
+    document.getElementById('createPostModal')?.classList.add('active');
+    document.getElementById('postTextInput').value = '';
+    document.getElementById('postMediaPreview').style.display = 'none';
+    feedPostMediaData = null;
+});
+
+document.getElementById('btnCancelPost')?.addEventListener('click', () => {
+    document.getElementById('createPostModal')?.classList.remove('active');
+});
+
+document.getElementById('postAddPhoto')?.addEventListener('click', () => {
+    const input = document.getElementById('postMediaInput');
+    if (input) { input.accept = 'image/*'; input.click(); }
+});
+
+document.getElementById('postAddVideo')?.addEventListener('click', () => {
+    const input = document.getElementById('postMediaInput');
+    if (input) { input.accept = 'video/*'; input.click(); }
+});
+
+document.getElementById('postMediaInput')?.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+        let data = ev.target.result;
+        if (file.type.startsWith('image/')) {
+            try { data = await compressImage(data, 800, 800, 800000); } catch(e) {}
+        }
+        feedPostMediaData = { data, type: file.type.startsWith('video/') ? 'video' : 'image', name: file.name };
+        const preview = document.getElementById('postMediaPreview');
+        const img = document.getElementById('postMediaImg');
+        if (preview && img) {
+            if (file.type.startsWith('video/')) {
+                img.style.display = 'none';
+                let vid = preview.querySelector('video');
+                if (!vid) { vid = document.createElement('video'); vid.autoplay = true; vid.loop = true; vid.muted = true; vid.style.cssText = 'max-width:100%;max-height:200px;border-radius:12px;'; preview.insertBefore(vid, preview.firstChild); }
+                vid.src = data;
+                vid.style.display = 'block';
+            } else {
+                const vid = preview.querySelector('video');
+                if (vid) vid.remove();
+                img.src = data;
+                img.style.display = 'block';
+            }
+            preview.style.display = 'block';
+        }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+});
+
+document.getElementById('postRemoveMedia')?.addEventListener('click', () => {
+    feedPostMediaData = null;
+    document.getElementById('postMediaPreview').style.display = 'none';
+    const vid = document.getElementById('postMediaPreview')?.querySelector('video');
+    if (vid) vid.remove();
+});
+
+document.getElementById('btnPublishPost')?.addEventListener('click', async () => {
+    const text = document.getElementById('postTextInput')?.value.trim();
+    if (!text && !feedPostMediaData) { showDynamicIsland('Напишите что-нибудь', 'error'); return; }
+    if (!currentUser) return;
+    
+    showDynamicIsland('Публикация...', 'info');
+    document.getElementById('btnPublishPost').disabled = true;
+    
+    try {
+        const postData = {
+            authorId: currentUser.uid,
+            authorName: currentUser.name || currentUser.username,
+            authorAvatar: currentUser.avatarUrl || '',
+            text: text || '',
+            mediaUrl: feedPostMediaData?.data || '',
+            mediaType: feedPostMediaData?.type || '',
+            timestamp: serverTimestamp(),
+            _localTime: Date.now(),
+            reactions: {},
+            comments: [],
+            commentCount: 0,
+            likeCount: 0
+        };
+        
+        await addDoc(collection(db, "feed"), postData);
+        document.getElementById('createPostModal')?.classList.remove('active');
+        document.getElementById('postTextInput').value = '';
+        document.getElementById('postMediaPreview').style.display = 'none';
+        feedPostMediaData = null;
+        showDynamicIsland('Опубликовано!', 'success');
+        loadFeed();
+    } catch(e) {
+        console.error('Post error:', e);
+        showDynamicIsland('Ошибка публикации', 'error');
+    }
+    document.getElementById('btnPublishPost').disabled = false;
+});
+
+async function loadFeed() {
+    const container = document.getElementById('feedList');
+    if (!container || !currentUser) return;
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);"><i class="fas fa-spinner fa-spin"></i></div>';
+    
+    try {
+        const snap = await getDocs(query(collection(db, "feed")));
+        let posts = [];
+        snap.forEach(d => posts.push({ id: d.id, ...d.data() }));
+        posts.sort((a, b) => {
+            const ta = a.timestamp?.toMillis?.() || a._localTime || 0;
+            const tb = b.timestamp?.toMillis?.() || b._localTime || 0;
+            return tb - ta;
+        });
+        
+        container.innerHTML = '';
+        if (posts.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--text-secondary);"><i class="fas fa-newspaper" style="font-size:40px;margin-bottom:16px;display:block;opacity:0.3;"></i>Лента пуста<br><small>Будьте первым, кто опубликует пост!</small></div>';
+            return;
+        }
+        
+        for (const post of posts) {
+            container.appendChild(renderFeedPost(post));
+        }
+    } catch(e) {
+        console.error('Feed load error:', e);
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);">Ошибка загрузки ленты</div>';
+    }
+}
+
+function renderFeedPost(post) {
+    const div = document.createElement('div');
+    div.className = 'feed-post';
+    div.dataset.postId = post.id;
+    
+    const timeStr = post.timestamp?.toDate ? post.timestamp.toDate().toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    
+    let mediaHtml = '';
+    if (post.mediaUrl) {
+        if (post.mediaType === 'video') {
+            mediaHtml = `<video src="${post.mediaUrl}" controls playsinline webkit-playsinline style="width:100%;max-height:400px;object-fit:cover;"></video>`;
+        } else {
+            mediaHtml = `<img src="${post.mediaUrl}" class="feed-post-media" onclick="window.open(this.src,'_blank')">`;
+        }
+    }
+    
+    const myReaction = Object.entries(post.reactions || {}).find(([emoji, users]) => users.includes(currentUser.uid));
+    
+    let reactionsHtml = '';
+    const reactions = post.reactions || {};
+    if (Object.keys(reactions).length > 0) {
+        reactionsHtml = '<div class="feed-reactions-row">';
+        for (const [emoji, users] of Object.entries(reactions)) {
+            if (!users || users.length === 0) continue;
+            const isMine = users.includes(currentUser.uid);
+            reactionsHtml += `<span class="feed-reaction-badge${isMine ? ' mine' : ''}" data-emoji="${emoji}" onclick="toggleFeedReaction('${post.id}','${emoji}')">${emoji} <span class="feed-reaction-count">${users.length}</span></span>`;
+        }
+        reactionsHtml += '</div>';
+    }
+    
+    div.innerHTML = `
+        <div class="feed-post-header">
+            <div class="feed-post-avatar" id="feed-avatar-${post.id}">${(post.authorName || '?')[0]?.toUpperCase()}</div>
+            <div class="feed-post-meta">
+                <div class="feed-post-name">${escape(post.authorName || 'Неизвестно')}</div>
+                <div class="feed-post-time">${timeStr}</div>
+            </div>
+        </div>
+        ${post.text ? `<div class="feed-post-text">${escape(post.text).replace(/\n/g, '<br>')}</div>` : ''}
+        ${mediaHtml}
+        <div class="feed-post-actions">
+            <button class="feed-action-btn${myReaction ? ' active' : ''}" onclick="toggleFeedReaction('${post.id}','👍')"><i class="fas fa-heart"></i> ${post.likeCount || Object.values(reactions).reduce((s, u) => s + u.length, 0) || ''}</button>
+            <button class="feed-action-btn" onclick="toggleFeedComments('${post.id}')"><i class="fas fa-comment"></i> ${post.commentCount || 0}</button>
+        </div>
+        ${reactionsHtml}
+        <div class="feed-comments-section" id="feed-comments-${post.id}" style="display:none;"></div>
+    `;
+    
+    // Load avatar
+    if (post.authorAvatar) {
+        const avDiv = div.querySelector(`#feed-avatar-${post.id}`);
+        if (avDiv) avDiv.innerHTML = `<img src="${post.authorAvatar}">`;
+    }
+    
+    return div;
+}
+
+window.toggleFeedReaction = async function(postId, emoji) {
+    if (!currentUser || !postId) return;
+    const postRef = doc(db, "feed", postId);
+    const postDoc = await getDoc(postRef);
+    if (!postDoc.exists()) return;
+    const data = postDoc.data();
+    const reactions = data.reactions || {};
+    
+    let myPrev = null;
+    for (const [em, users] of Object.entries(reactions)) {
+        const idx = users.indexOf(currentUser.uid);
+        if (idx > -1) { myPrev = em; reactions[em] = users.filter(u => u !== currentUser.uid); if (reactions[em].length === 0) delete reactions[em]; break; }
+    }
+    
+    if (myPrev !== emoji) {
+        reactions[emoji] = [...(reactions[emoji] || []), currentUser.uid];
+    }
+    
+    await updateDoc(postRef, { reactions });
+    loadFeed();
+};
+
+window.toggleFeedComments = function(postId) {
+    const section = document.getElementById(`feed-comments-${postId}`);
+    if (!section) return;
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        loadFeedComments(postId);
+    } else {
+        section.style.display = 'none';
+    }
+};
+
+async function loadFeedComments(postId) {
+    const section = document.getElementById(`feed-comments-${postId}`);
+    if (!section) return;
+    
+    try {
+        const postDoc = await getDoc(doc(db, "feed", postId));
+        if (!postDoc.exists()) return;
+        const postData = postDoc.data();
+        const comments = postData.comments || [];
+        
+        section.innerHTML = '';
+        
+        for (const comment of comments) {
+            const cDiv = document.createElement('div');
+            cDiv.className = 'feed-comment';
+            cDiv.innerHTML = `
+                <div class="feed-comment-avatar">${(comment.authorName || '?')[0]?.toUpperCase()}</div>
+                <div class="feed-comment-body">
+                    <div class="feed-comment-name">${escape(comment.authorName || 'Неизвестно')}</div>
+                    <div class="feed-comment-text">${escape(comment.text)}</div>
+                    <div class="feed-comment-time">${comment.time || ''}</div>
+                </div>
+            `;
+            if (comment.authorAvatar) {
+                const avDiv = cDiv.querySelector('.feed-comment-avatar');
+                if (avDiv) avDiv.innerHTML = `<img src="${comment.authorAvatar}">`;
+            }
+            section.appendChild(cDiv);
+        }
+        
+        const inputDiv = document.createElement('div');
+        inputDiv.className = 'feed-comment-input';
+        inputDiv.innerHTML = `<input type="text" placeholder="Комментарий..." id="feedCommentInput-${postId}"><button onclick="sendFeedComment('${postId}')"><i class="fas fa-paper-plane"></i></button>`;
+        section.appendChild(inputDiv);
+    } catch(e) {
+        console.error('Load comments error:', e);
+    }
+}
+
+window.sendFeedComment = async function(postId) {
+    const input = document.getElementById(`feedCommentInput-${postId}`);
+    if (!input || !currentUser) return;
+    const text = input.value.trim();
+    if (!text) return;
+    
+    try {
+        const postRef = doc(db, "feed", postId);
+        const postDoc = await getDoc(postRef);
+        if (!postDoc.exists()) return;
+        
+        const comments = postDoc.data().comments || [];
+        comments.push({
+            authorId: currentUser.uid,
+            authorName: currentUser.name || currentUser.username,
+            authorAvatar: currentUser.avatarUrl || '',
+            text,
+            time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+        });
+        
+        await updateDoc(postRef, { comments, commentCount: comments.length });
+        input.value = '';
+        loadFeedComments(postId);
+        showDynamicIsland('Комментарий добавлен', 'success');
+    } catch(e) {
+        console.error('Comment error:', e);
+    }
+};
