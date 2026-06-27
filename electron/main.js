@@ -1,5 +1,5 @@
 const path = require('path');
-const { app, clipboard, shell, dialog, nativeTheme } = require('electron');
+const { app, clipboard, shell, dialog, nativeTheme, desktopCapturer } = require('electron');
 const { SparkApp, WindowManager, TrayManager, IpcManager, Store, MenuManager, NotifyManager } = require('../engine');
 
 let autoUpdater = null;
@@ -9,7 +9,7 @@ try { autoUpdater = require('electron-updater').autoUpdater; } catch(e) {}
 
 const spark = new SparkApp({
     name: 'SPARK',
-    version: '2.0.2',
+    version: '2.2.0',
     config: {
         windowBounds: { width: 1200, height: 800 },
         darkMode: true,
@@ -124,6 +124,17 @@ function registerIpcHandlers() {
     ipc.on('app:quit', () => app.quit());
     ipc.on('app:relaunch', () => app.relaunch({ args: process.argv.slice(1) }));
 
+    // Screen sharing via desktopCapturer
+    ipc.handle('screen:getSources', async () => {
+        try {
+            const sources = await desktopCapturer.getSources({ types: ['window', 'screen'] });
+            return sources.map(s => ({ id: s.id, name: s.name, thumbnailDataURL: s.thumbnail.toDataURL() }));
+        } catch(e) {
+            console.error('[ScreenShare]', e.message);
+            return [];
+        }
+    });
+
     // Auto-updater
     if (autoUpdater) {
         autoUpdater.autoDownload = true;
@@ -183,6 +194,14 @@ function createMainWindow() {
             platform: process.platform,
             isDarkMode: nativeTheme.shouldUseDarkColors,
         });
+    });
+
+    mainWindow.webContents.setPermissionRequestHandler((webContents, permission, callback) => {
+        if (permission === 'media' || permission === 'display-capture' || permission === 'screen-capture') {
+            callback(true);
+        } else {
+            callback(false);
+        }
     });
 
     return mainWindow;
@@ -249,7 +268,7 @@ spark.whenReady().then(async () => {
     createTray();
     createAppMenu();
 
-    console.log('[SPARK Engine] v2.0.2 started');
+    console.log('[SPARK Engine] v2.0.5 started');
     console.log('[SPARK Engine] Platform:', process.platform);
     console.log('[SPARK Engine] Node:', process.versions.node);
     console.log('[SPARK Engine] Electron:', process.versions.electron);

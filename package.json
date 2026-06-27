@@ -1,6 +1,6 @@
 {
   "name": "spark-messenger",
-  "version": "2.0.2",
+  "version": "2.2.0",
   "description": "SPARK Messenger — Powered by SparkEngine",
   "main": "electron/main.js",
   "scripts": {
@@ -17,17 +17,24 @@
     },
     "files": [
       "index.html",
+      "download.html",
       "script.js",
       "ui.js",
       "helpers.js",
+      "notifications.js",
       "desktop.css",
       "style.css",
+      "sw.js",
       "firebase-config.js",
       "firebase-app.js",
+      "firebase-messaging-sw.js",
       "webrtc.js",
+      "manifest.json",
       "engine/**/*",
       "electron/**/*",
-      "icon.png"
+      "vendor/firebase/*",
+      "icon.png",
+      "icon.ico"
     ],
     "extraResources": [
       {
@@ -55,7 +62,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
       "perMachine": false,
       "installerIcon": "icon.ico",
       "uninstallerIcon": "icon.ico",
@@ -63,7 +71,10 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "SPARK",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "uninstallDisplayName": "SPARK",
+      "warningsAsErrors": false,
+      "runAfterFinish": true
     },
     "mac": {
       "target": [
@@ -102,14 +113,15 @@
     "forceCodeSigning": false
   },
   "dependencies": {
-    "@google-cloud/storage": "^7.21.0"
+    "@google-cloud/storage": "^7.21.0",
+    "firebase": "^10.8.0"
   },
   "devDependencies": {
     "@capacitor/android": "^5.7.8",
     "@capacitor/cli": "^5.7.8",
     "@capacitor/core": "^5.7.8",
     "@capacitor/ios": "^5.7.8",
-    "electron": "^33.0.0",
+    "electron": "^33.4.11",
     "electron-builder": "^25.0.0",
     "electron-updater": "^6.8.9",
     "png2icons": "^2.0.1",
