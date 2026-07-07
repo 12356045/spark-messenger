@@ -1,12 +1,57 @@
 import { openPanel, closePanel, switchTab, applySavedLanguage, applySavedWallpaper, syncProfile, applySavedTheme, initPanelHandlers, renderAvatar, t } from "./ui.js";
 import { getBlobUrlFromBase64, formatLastSeen, compressImage, detectDevice, getCameraConstraints, getSupportedVideoMimeType, isNotificationsEnabled, notifyIncomingMessage, registerAppServiceWorker, getMessagePreview, createCirclePlayerHTML, initCirclePlayer, closeCircleFullscreen, setRingProgress, formatVideoTime, CIRCLE_MAX_DURATION } from "./helpers.js";
-import { initiateCall, listenToIncomingCalls, stopCall, toggleLocalVideo, toggleLocalAudio, triggerCameraSwitch, setZoom } from "./webrtc.js";
+import { initiateCall, listenToIncomingCalls, stopCall, toggleLocalVideo, toggleLocalAudio, triggerCameraSwitch, setZoom, toggleScreenShare } from "./webrtc.js";
 import { auth, db } from "./firebase-config.js";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "./vendor/firebase/firebase-auth.js";
 import { getFCMToken, listenForMessages } from "./firebase-app.js";
-import { collection, addDoc, query, getDocs, onSnapshot, orderBy, doc, updateDoc, setDoc, getDoc, where, arrayUnion, arrayRemove, deleteDoc, writeBatch, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getStorage, ref as storageRefFn, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+import { collection, addDoc, query, getDocs, onSnapshot, orderBy, doc, updateDoc, setDoc, getDoc, where, arrayUnion, arrayRemove, deleteDoc, writeBatch, serverTimestamp, increment } from "./vendor/firebase/firebase-firestore.js";
+import { getStorage, ref as storageRefFn, uploadBytes, getDownloadURL } from "./vendor/firebase/firebase-storage.js";
 const storage = getStorage();
+
+    // Customization: Gyroscope Star + Background
+    setTimeout(() => {
+        const bankStar = document.getElementById('bank-star');
+        if (bankStar) {
+            bankStar.innerHTML = '<svg viewBox="0 0 100 100" width="60px" height="60px"><path d="M50 5 L63 38 L98 38 L70 60 L80 95 L50 75 L20 95 L30 60 L2 38 L37 38 Z" fill="rgba(255,255,255,0.85)" stroke="rgba(255,255,255,0.5)" stroke-width="2"/></svg>';
+        }
+
+        let bgIndex = 0;
+        const bgs = document.querySelectorAll('.bg-image');
+        if (bgs.length > 0) {
+            setInterval(() => {
+                bgs[bgIndex].classList.remove('active');
+                bgIndex = (bgIndex + 1) % bgs.length;
+                bgs[bgIndex].classList.add('active');
+            }, 5000);
+        }
+    }, 2000);
+
+// ========== WINDOW CONTROLS ==========
+if (window.electronAPI) {
+    document.getElementById('titlebarMinimize')?.addEventListener('click', () => window.electronAPI.windowMinimize());
+    document.getElementById('titlebarMaximize')?.addEventListener('click', () => window.electronAPI.windowMaximize());
+    document.getElementById('titlebarClose')?.addEventListener('click', () => window.electronAPI.windowClose());
+}
+
+async function autoTranslate(text, targetLang) {
+    try {
+        const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=auto|${targetLang}`);
+        const data = await resp.json();
+        if (data.responseStatus === 200 && data.responseData?.translatedText) {
+            return data.responseData.translatedText;
+        }
+    } catch(e) {}
+    return null;
+}
+
+function detectSimpleLang(text) {
+    if (/[а-яА-ЯёЁ]/.test(text)) return 'ru';
+    if (/[äöüß]/.test(text) || /\b(ist|und|der|die|das|nicht|ein)\b/i.test(text)) return 'de';
+    if (/[ñ¿¡]/.test(text) || /\b(el|la|los|las|es|son|está|tiene)\b/i.test(text)) return 'es';
+    if (/[àâçéèêëîïôùûüÿœæ]/i.test(text)) return 'fr';
+    if (/[а-яА-ЯёЁ]/.test(text)) return 'uk';
+    return 'en';
+}
 
 let currentUser = null, currentChatId = null, currentChatOtherId = null, unsubMessages = null, editingMessageId = null;
 let contextMenuChatId = null;
@@ -53,6 +98,11 @@ function getDisplayName(name, userData) {
     if (isCreator(userData)) return `${name}`;
     if (isPremium(userData)) return `${name}`;
     return name;
+}
+
+function getPremiumBadge(userData) {
+    if (!isPremium(userData) && !isCreator(userData)) return '';
+    return ' <span style="color:var(--accent);font-size:14px;">★</span>';
 }
 
 function getPinnedChats() {
@@ -127,14 +177,6 @@ function prevScreen() {
     if (currentScreenIndex > 0) showScreen(currentScreenIndex - 1);
 }
 
-let touchStartX = 0;
-document.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; });
-document.addEventListener('touchend', (e) => {
-    let diff = touchStartX - e.changedTouches[0].screenX;
-    if (diff > 50) nextScreen();
-    else if (diff < -50) prevScreen();
-});
-
 // ========== ОСНОВНЫЕ ФУНКЦИИ ==========
 function escape(str) { 
     return str ? str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]) : ''; 
@@ -193,7 +235,7 @@ function clearChatUserSubscription() {
 function renderUserStatus(u) {
     const statusEl = document.getElementById('chatTargetStatus');
     if (!statusEl || !u) return;
-    statusEl.textContent = u.online ? t('online') : formatLastSeen(u.lastSeen);
+    statusEl.textContent = u.online ? 'В сети' : 'Не в сети';
 }
 
 function subscribeToChatUserStatus(userId) {
@@ -226,12 +268,25 @@ async function markMessagesAsRead(chatId) {
         snapshot.forEach(doc => {
             const data = doc.data();
             if (!data.read && data.senderId !== currentUser.uid) {
-                batch.update(doc.ref, { read: true, readAt: serverTimestamp() });
+                batch.update(doc.ref, { read: true, readAt: serverTimestamp(), delivered: true });
+            } else if (data.senderId !== currentUser.uid && !data.delivered) {
+                batch.update(doc.ref, { delivered: true, deliveredAt: serverTimestamp() });
             }
         });
         await batch.commit();
     } catch(e) {
         console.log("Ошибка markMessagesAsRead:", e);
+    }
+}
+
+function getReadCheckHtml(msg, isMy) {
+    if (!isMy) return '';
+    if (msg.read) {
+        return '<i class="fas fa-check-double" style="color:#53bdeb;font-size:11px;margin-left:4px;"></i>';
+    } else if (msg.delivered) {
+        return '<i class="fas fa-check-double" style="color:var(--text-secondary);font-size:11px;margin-left:4px;"></i>';
+    } else {
+        return '<i class="fas fa-check" style="color:var(--text-secondary);font-size:11px;margin-left:4px;"></i>';
     }
 }
 
@@ -978,9 +1033,9 @@ if (isl) {
 }
 
 const changePasswordBtn = document.getElementById('changePasswordBtn');
-if (changePasswordBtn) changePasswordBtn.addEventListener('click', () => document.getElementById('passwordModal').style.display = 'flex');
+if (changePasswordBtn) changePasswordBtn.addEventListener('click', () => document.getElementById('passwordModal').classList.add('active'));
 const closePasswordModal = document.querySelector('.closePasswordModal');
-if (closePasswordModal) closePasswordModal.addEventListener('click', () => document.getElementById('passwordModal').style.display = 'none');
+if (closePasswordModal) closePasswordModal.addEventListener('click', () => document.getElementById('passwordModal').classList.remove('active'));
 const savePasswordBtn = document.getElementById('savePasswordBtn');
 if (savePasswordBtn) {
     savePasswordBtn.addEventListener('click', async () => {
@@ -994,7 +1049,7 @@ if (savePasswordBtn) {
         await reauthenticateWithCredential(user, cred);
         await updatePassword(user, newp);
         showDynamicIsland('Пароль изменён', 'success');
-        document.getElementById('passwordModal').style.display = 'none';
+        document.getElementById('passwordModal').classList.remove('active');
     });
 }
 
@@ -1015,10 +1070,10 @@ const notifToggle = document.getElementById('notifToggle');
 if (notifToggle) {
     notificationsEnabled = localStorage.getItem('notifications') === 'true';
     notifToggle.checked = notificationsEnabled;
-    notifToggle.onchange = () => { notificationsEnabled = notifToggle.checked; localStorage.setItem('notifications', notificationsEnabled); if (notificationsEnabled && Notification.permission !== 'granted') Notification.requestPermission(); };
+    notifToggle.onchange = () => { notificationsEnabled = notifToggle.checked; localStorage.setItem('notifications', notificationsEnabled); if (notificationsEnabled && 'Notification' in window && Notification.permission !== 'granted') Notification.requestPermission(); };
 }
 registerAppServiceWorker();
-if (Notification.permission === 'default' && isNotificationsEnabled()) {
+if ('Notification' in window && Notification.permission === 'default' && isNotificationsEnabled()) {
     Notification.requestPermission();
 }
 
@@ -1070,6 +1125,16 @@ function formatChatTime(ts) {
     return d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
 }
 
+const _userCache = {};
+async function getCachedUser(uid) {
+    if (_userCache[uid]) return _userCache[uid];
+    try {
+        const d = await getDoc(doc(db, "users", uid));
+        if (d.exists()) { _userCache[uid] = d.data(); return d.data(); }
+    } catch(e) {}
+    return null;
+}
+
 async function renderChatCard(chat, container, index) {
     const pinned = getPinnedChats();
     const muted = getMutedChats();
@@ -1077,14 +1142,15 @@ async function renderChatCard(chat, container, index) {
     let name = chat.name || (isChannel ? 'Канал' : '');
     let otherId = null;
     let otherAvatar = null;
+    let otherUserData = null;
 
     if (chat.type === 'private') {
         let other = chat.members.find(m => m.uid !== currentUser.uid);
         otherId = other?.uid;
         if (otherId) {
             name = await getCustomNameForUser(otherId);
-            const otherDoc = await getDoc(doc(db, "users", otherId));
-            if (otherDoc.exists()) otherAvatar = otherDoc.data().avatarUrl;
+            otherUserData = await getCachedUser(otherId);
+            if (otherUserData) otherAvatar = otherUserData.avatarUrl;
         } else name = chat.name;
     } else if (isChannel) {
         otherAvatar = chat.avatarUrl || null;
@@ -1095,7 +1161,7 @@ async function renderChatCard(chat, container, index) {
         const nameEl = existing.querySelector('.chat-name');
         const lastEl = existing.querySelector('.chat-last');
         const timeEl = existing.querySelector('.chat-time');
-        if (nameEl) nameEl.innerHTML = `${escape(name)}${muted.includes(chat.id) ? '<i class="fas fa-bell-slash" style="color:var(--text-secondary);font-size:11px;margin-left:4px;"></i>' : ''}`;
+        if (nameEl) nameEl.innerHTML = `${escape(name)}${getPremiumBadge(otherUserData)}${muted.includes(chat.id) ? '<i class="fas fa-bell-slash" style="color:var(--text-secondary);font-size:11px;margin-left:4px;"></i>' : ''}`;
         if (lastEl) lastEl.textContent = chat.lastMessage || t('noMessagesPreview');
         if (timeEl) timeEl.textContent = formatChatTime(chat.lastMessageTime);
         return;
@@ -1114,7 +1180,7 @@ async function renderChatCard(chat, container, index) {
     div.innerHTML = `<div class="avatar chat-list-avatar"></div>
         <div class="chat-info" style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:4px;">
-                <div class="chat-name" style="flex:1; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escape(name)}${typeIcon}${muteIcon}</div>
+                <div class="chat-name" style="flex:1; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escape(name)}${getPremiumBadge(otherUserData)}${typeIcon}${muteIcon}</div>
                 <span class="chat-time" style="font-size:11px; color:var(--text-secondary); white-space:nowrap; flex-shrink:0;">${chatTime}</span>
                 ${pinIcon}
             </div>
@@ -1142,40 +1208,97 @@ async function renderChatCard(chat, container, index) {
 }
 
 function scheduleChatsRender(chats) {
-    if (chatsRenderScheduled) return;
-    chatsRenderScheduled = true;
-    requestAnimationFrame(async () => {
-        chatsRenderScheduled = false;
-        let container = document.getElementById('chatList');
-        if (!container) return;
-        if (chats.length === 0) {
-            container.innerHTML = `<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.5);">${t('noChats')}</div>`;
-            chatsRenderCache = {};
-            return;
-        }
-        for (let i = 0; i < chats.length; i++) {
-            await renderChatCard(chats[i], container, i);
-        }
-        // Remove deleted chats from DOM
-        const chatIds = new Set(chats.map(c => c.id));
-        container.querySelectorAll('.chat-card').forEach(el => {
-            if (!chatIds.has(el.dataset.chatId)) el.remove();
-        });
+    chatsRenderScheduled = false;
+    let container = document.getElementById('chatList');
+    if (!container) return;
+    if (chats.length === 0) {
+        container.innerHTML = `<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.5);">${t('noChats')}</div>`;
+        chatsRenderCache = {};
+        return;
+    }
+    for (let i = 0; i < chats.length; i++) {
+        renderChatCard(chats[i], container, i);
+    }
+    const chatIds = new Set(chats.map(c => c.id));
+    container.querySelectorAll('.chat-card').forEach(el => {
+        if (!chatIds.has(el.dataset.chatId)) el.remove();
     });
 }
 
-async function loadChats() { 
+function buildChatCardData(chat) {
+    const isChannel = chat.type === 'channel' || chat.type === 'group';
+    let name = chat.name || (isChannel ? 'Канал' : '');
+    let otherId = null;
+    let otherAvatar = null;
+    let premiumBadge = '';
+    if (chat.type === 'private') {
+        const other = chat.members?.find(m => m.uid !== currentUser.uid);
+        otherId = other?.uid;
+        if (otherId) {
+            name = customNamesCache[otherId] || other?.name || other?.username || '';
+            const ud = _userCache[otherId];
+            if (ud) {
+                otherAvatar = ud.avatarUrl;
+                premiumBadge = getPremiumBadge(ud);
+            } else {
+                otherAvatar = other?.avatarUrl || null;
+            }
+        }
+    } else if (isChannel) {
+        otherAvatar = chat.avatarUrl || null;
+    }
+    return { name, otherId, avatar: otherAvatar, premiumBadge };
+}
+
+// Chat list cache (like Telegram)
+function cacheChatsList(chats) {
+    try {
+        localStorage.setItem('spark-chats-cache', JSON.stringify(chats.slice(0, 50)));
+    } catch(e) {}
+}
+function loadCachedChats() {
+    try {
+        const cached = JSON.parse(localStorage.getItem('spark-chats-cache') || '[]');
+        if (cached.length > 0) {
+            const container = document.getElementById('chatList');
+            if (container && container.children.length === 0) {
+                for (let i = 0; i < cached.length; i++) {
+                    renderChatCard(cached[i], container, i);
+                }
+            }
+        }
+    } catch(e) {}
+}
+
+function loadCachedChatsRender() {
+    try {
+        const cached = JSON.parse(localStorage.getItem('spark-chats-cache') || '[]');
+        if (cached.length > 0) {
+            const container = document.getElementById('chatList');
+            if (container && container.children.length === 0) {
+                for (let i = 0; i < cached.length; i++) {
+                    renderChatCard(cached[i], container, i);
+                }
+            }
+        }
+        return cached.length > 0;
+    } catch(e) {}
+    return false;
+}
+
+async function loadChats() {
     if (!currentUser) return;
     if (unsubChats) { unsubChats(); unsubChats = null; }
+    const cached = loadCachedChatsRender();
     const q = query(collection(db, "chats"));
-    unsubChats = onSnapshot(q, async (snap) => { 
-        if (!currentUser) return; 
-        let chats = []; 
-        snap.forEach(d => { 
-            let chat = d.data(); 
-            if (chat.members && chat.members.some(m => m.uid === currentUser.uid)) 
-                chats.push({ id: d.id, ...chat }); 
-        }); 
+    unsubChats = onSnapshot(q, async (snap) => {
+        if (!currentUser) return;
+        let chats = [];
+        snap.forEach(d => {
+            let chat = d.data();
+            if (chat.members && chat.members.some(m => m.uid === currentUser.uid))
+                chats.push({ id: d.id, ...chat });
+        });
         chats.sort((a, b) => {
             const pinned = getPinnedChats();
             const aPinned = pinned.includes(a.id) ? 1 : 0;
@@ -1198,11 +1321,12 @@ async function loadChats() {
         }
 
         scheduleChatsRender(chats);
-        
+        cacheChatsList(chats);
+
         if (!notificationsReady) {
             setTimeout(() => { notificationsReady = true; }, 2000);
         }
-    }); 
+    });
 }
 
 let createChatLocks = {};
@@ -1243,19 +1367,27 @@ async function createChat(user) {
     }
 }
 
-function openChat(id, name, otherId = null) { 
-    if(unsubMessages) unsubMessages(); 
+function openChat(id, name, otherId = null) {
+    if(unsubMessages) unsubMessages();
     clearChatUserSubscription();
-    currentChatId = id; 
+    currentChatId = id;
     currentChatOtherId = otherId;
     currentChannelData = null;
+    if (otherId) listenTyping(otherId);
     const chatTargetName = document.getElementById('chatTargetName');
     if (chatTargetName) chatTargetName.textContent = name;
     const chatView = document.getElementById('chatView');
     if (chatView) { chatView.style.display = 'flex'; chatView.classList.add('chat-open'); }
+
+    const hdrCapsule = document.getElementById('chatHeaderInfo');
+    const chatExpanded = document.getElementById('chatExpanded');
+    if (hdrCapsule && chatExpanded) {
+        chatExpanded.classList.remove('open');
+        hdrCapsule.onclick = () => chatExpanded.classList.toggle('open');
+    }
     
-    const actions = document.getElementById('chatHeaderActions');
-    if (actions) { actions.classList.remove('open'); actions.style.display = ''; }
+    const chatHeaderActions = document.getElementById('chatHeaderActions');
+    if (chatHeaderActions) chatHeaderActions.style.display = 'flex';
     
     markMessagesAsRead(id);
     
@@ -1267,10 +1399,21 @@ function openChat(id, name, otherId = null) {
     const setupOtherUser = (uid, displayName) => {
         currentChatOtherId = uid;
         subscribeToChatUserStatus(uid);
+        listenTyping(uid);
         getDoc(doc(db, "users", uid)).then(userDoc => {
             if (!userDoc.exists()) return;
             const u = userDoc.data();
             renderAvatar(document.getElementById('chatTargetAvatar'), { avatarUrl: u.avatarUrl, name: displayName || u.name || u.username });
+        });
+        // Show subscription label in chat header
+        getDoc(doc(db, "users", currentUser.uid)).then(myDoc => {
+            if (!myDoc.exists()) return;
+            const myData = myDoc.data();
+            const sub = (myData.customSubscriptions || []).find(s => s.userId === uid);
+            const statusEl = document.getElementById('chatTargetStatus');
+            if (statusEl && sub) {
+                statusEl.innerHTML = `<span style="color:var(--accent);font-weight:600;">${escape(sub.name)}</span>`;
+            }
         });
     };
 
@@ -1284,9 +1427,9 @@ function openChat(id, name, otherId = null) {
         });
     }
 
-    let msgsQuery = query(collection(db, "messages"), where("chatId", "==", id)); 
-    unsubMessages = onSnapshot(msgsQuery, async (snap) => { 
-        let msgs = []; 
+    let msgsQuery = query(collection(db, "messages"), where("chatId", "==", id));
+    unsubMessages = onSnapshot(msgsQuery, async (snap) => {
+        let msgs = [];
         for (const d of snap.docs) msgs.push({ id: d.id, ...d.data() });
         msgs.sort((a, b) => {
             const ta = a.timestamp?.toMillis?.() || a._localTime || 0;
@@ -1295,6 +1438,7 @@ function openChat(id, name, otherId = null) {
         });
         let area = document.getElementById('messagesArea'); 
         if (!area) return;
+        area.querySelectorAll('[data-msg-id^="optimistic_"]').forEach(el => el.remove());
         if(msgs.length === 0) area.innerHTML = `<div style="text-align:center;margin-top:80px;opacity:0.6;">${t('noMessages')}</div>`; 
         else { 
             area.innerHTML = ''; 
@@ -1302,6 +1446,7 @@ function openChat(id, name, otherId = null) {
                 let isMy = msg.senderId === currentUser.uid; 
                 let div = document.createElement('div'); 
                 div.className = `message ${isMy ? 'my-message' : ''}`; 
+                if (msg.type === 'gift') div.classList.add('gift-message');
                 div.dataset.msgId = msg.id;
                 let content = ''; 
                 
@@ -1335,6 +1480,9 @@ function openChat(id, name, otherId = null) {
                         content = `<div class="message-text" style="opacity:0.5;">⏰ ${escape(callerName)} ${t('callMissed')}</div>`;
                     }
                 }
+                else if(msg.type === 'gift') {
+                    content = renderGiftMessage(msg, isMy);
+                }
                 else if(msg.type === 'system') { 
                     content = `<div class="message-text" style="font-style: italic; opacity: 0.7;">${escape(msg.text)}</div>`; 
                 }
@@ -1347,27 +1495,42 @@ function openChat(id, name, otherId = null) {
                         content = `<div class="message-text" data-msg-text="${escape(msg.text)}">${displayText}</div>`;
                     }
                     if(msg.edited) content += `<span class="edited-badge"> ${t('edited')}</span>`;
+                    // Auto-translate for premium users
+                    if (msg.text && !isEmojiOnly(msg.text) && !isMy && currentUser?.premium) {
+                        const savedLang = localStorage.getItem('spark-lang') || 'ru';
+                        const msgLang = detectSimpleLang(msg.text);
+                        if (msgLang && msgLang !== savedLang) {
+                            autoTranslate(msg.text, savedLang).then(translated => {
+                                if (translated) {
+                                    const el = bubble.querySelector('.message-text');
+                                    if (el) {
+                                        el.innerHTML += `<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;font-style:italic;border-top:1px solid var(--border);padding-top:4px;">${escape(translated)}</div>`;
+                                    }
+                                }
+                            });
+                        }
+                    }
                 } 
                 
                 const bubble = document.createElement('div');
                 bubble.className = 'message-bubble';
                 if (msg.type === 'circle') bubble.classList.add('circle-bubble');
-                if (isMy && msg.type !== 'system' && msg.type !== 'call') bubble.classList.add('clickable');
+                if (isMy && msg.type !== 'system' && msg.type !== 'call' && msg.type !== 'gift') bubble.classList.add('clickable');
                 let replyHtml = '';
                 if (msg.replyTo) {
                     const replySnippet = msg.replyToText ? escape(msg.replyToText).substring(0, 80) : '';
                     const replySender = msg.replyToSenderName ? escape(msg.replyToSenderName) : '';
-                    replyHtml = `<div class="reply-quote" style="border-left:3px solid var(--accent);padding:4px 10px;margin-bottom:6px;border-radius:4px;background:rgba(108,92,231,0.08);font-size:12px;"><div style="font-weight:600;color:var(--accent);font-size:11px;">${replySender}</div><div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">${replySnippet}</div></div>`;
+                    replyHtml = `<div class="reply-quote" style="border-left:3px solid var(--accent);padding:4px 10px;margin-bottom:6px;border-radius:4px;background:rgba(255,255,255,0.08);font-size:12px;"><div style="font-weight:600;color:var(--accent);font-size:11px;">${replySender}</div><div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">${replySnippet}</div></div>`;
                 }
                 let forwardHtml = '';
                 if (msg.forwardedFrom) {
                     forwardHtml = `<div style="font-size:11px;color:var(--accent);font-weight:600;margin-bottom:4px;"><i class="fas fa-share" style="margin-right:4px;font-size:10px;"></i>Переслано от ${escape(msg.forwardedFrom)}</div>`;
                 }
-                bubble.innerHTML = `<div>${forwardHtml}${replyHtml}${content}</div><div class="message-time">${msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || ''}</div>`;
+                bubble.innerHTML = `<div>${forwardHtml}${replyHtml}${content}</div><div class="message-time">${msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || ''}${getReadCheckHtml(msg, isMy)}</div>`;
                 
                 if (msg.type === 'circle') initCirclePlayer(bubble);
                 
-                if (isMy && msg.type !== 'system' && msg.type !== 'call' && msg.type !== 'circle') {
+                if (isMy && msg.type !== 'system' && msg.type !== 'call' && msg.type !== 'circle' && msg.type !== 'gift') {
                     bubble.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const msgMenu = document.getElementById('messageContextMenu');
@@ -1379,16 +1542,19 @@ function openChat(id, name, otherId = null) {
                         showContextMenu(msgMenu, e.clientX, e.clientY);
                     });
                 }
-                if (!isMy && msg.type !== 'system' && msg.type !== 'call' && msg.type !== 'circle') {
+                if (!isMy && msg.type !== 'system' && msg.type !== 'call' && msg.type !== 'circle' && msg.type !== 'gift') {
                     bubble.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const bar = document.getElementById('msgActionBar');
                         if (!bar) return;
                         bar.style.display = 'flex';
-                        const bw = 280, bh = 44;
-                        let left = Math.max(10, Math.min(e.clientX - bw/2, window.innerWidth - bw - 10));
-                        let top = e.clientY - bh - 12;
-                        if (top < 10) top = e.clientY + 12;
+                        const bw = 280;
+                        const bubbleRect = bubble.getBoundingClientRect();
+                        let left = bubbleRect.right - bw;
+                        let top = bubbleRect.bottom + 8;
+                        if (left < 10) left = 10;
+                        if (left + bw > window.innerWidth - 10) left = window.innerWidth - bw - 10;
+                        if (top + 200 > window.innerHeight) top = bubbleRect.top - 8 - 200;
                         bar.style.left = left + 'px';
                         bar.style.top = Math.max(10, top) + 'px';
                         bar.dataset.msgId = msg.id;
@@ -1419,8 +1585,8 @@ function openChat(id, name, otherId = null) {
                 area.appendChild(div); 
             }
         } 
-        area.scrollTop = area.scrollHeight; 
-    }); 
+        area.scrollTop = area.scrollHeight;
+    });
 }
 
 async function deleteMessage(id) { if(confirm('Удалить сообщение?')){ await deleteDoc(doc(db,"messages",id)); showDynamicIsland('Сообщение удалено', 'success'); } }
@@ -1434,11 +1600,8 @@ const voiceBtn = document.getElementById('voiceBtn');
 
 function toggleSendButton() {
     if (!messageInput || !sendBtn || !voiceBtn) return;
-    const hasText = messageInput.value.trim().length > 0;
-    const circleBtn = document.getElementById('circleRecordBtn');
-    sendBtn.style.display = hasText ? 'flex' : 'none';
-    voiceBtn.style.display = hasText ? 'none' : 'block';
-    if (circleBtn) circleBtn.style.display = hasText ? 'none' : 'block';
+    sendBtn.style.display = 'flex';
+    voiceBtn.style.display = 'flex';
 }
 
 async function sendMessage() {
@@ -1446,7 +1609,6 @@ async function sendMessage() {
     const messageText = messageInput.value.trim();
     if (!messageText || !currentChatId || !currentUser) return;
     
-    // Check channel write permission
     if (currentChannelData && currentChannelData.type === 'channel') {
         const isSparkChannel = currentChannelData.name === SPARK_CHANNEL_NAME;
         if (isSparkChannel && !isCreator(currentUser)) {
@@ -1459,24 +1621,65 @@ async function sendMessage() {
         }
     }
     
-    await addDoc(collection(db, "messages"), { chatId: currentChatId, type: 'text', text: messageText, senderId: currentUser.uid, senderName: currentUser.name, timestamp: serverTimestamp(), _localTime: Date.now(), edited: false, read: false, replyTo: window._replyToMsgId || null, replyToText: window._replyToText || null, replyToSenderName: window._replyToSenderName || null });
-    await updateDoc(doc(db, "chats", currentChatId), { lastMessage: messageText, lastMessageTime: serverTimestamp() });
+    const optimisticMsg = {
+        id: 'optimistic_' + Date.now(),
+        type: 'text',
+        text: messageText,
+        senderId: currentUser.uid,
+        senderName: currentUser.name,
+        timestamp: { toDate: () => new Date(), toMillis: () => Date.now() },
+        _localTime: Date.now(),
+        optimistic: true
+    };
+    
+    const area = document.getElementById('messagesArea');
+    if (area && !area.querySelector('[data-msg-id^="optimistic_"]')) {
+        const div = document.createElement('div');
+        div.className = 'message my-message';
+        div.dataset.msgId = optimisticMsg.id;
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble clickable';
+        bubble.innerHTML = `<div><div class="message-text" data-msg-text="${escape(messageText)}">${escape(messageText)}</div></div><div class="message-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}<i class="fas fa-check" style="color:var(--text-secondary);font-size:11px;margin-left:4px;opacity:0.5;"></i></div>`;
+        div.appendChild(bubble);
+        area.appendChild(div);
+        area.scrollTop = area.scrollHeight;
+    }
+    
     messageInput.value = '';
     toggleSendButton();
     const rb = document.getElementById('replyBar');
     if (rb) rb.remove();
+    
+    const replyData = {
+        replyTo: window._replyToMsgId || null,
+        replyToText: window._replyToText || null,
+        replyToSenderName: window._replyToSenderName || null
+    };
     window._replyToMsgId = null;
     window._replyToText = null;
     window._replyToSenderName = null;
-    showDynamicIsland('Сообщение отправлено', 'message');
-    const chatDoc = await getDoc(doc(db, "chats", currentChatId));
-    const otherMember = chatDoc.data().members?.find(m => m.uid !== currentUser.uid);
-    if (otherMember) {
-        addDoc(collection(db, 'notifications'), {
-            recipientId: otherMember.uid, senderName: currentUser.name || currentUser.username,
-            messageText: messageText, chatId: currentChatId,
-            timestamp: new Date(), read: false
-        }).catch(() => {});
+    
+    try {
+        await addDoc(collection(db, "messages"), { chatId: currentChatId, type: 'text', text: messageText, senderId: currentUser.uid, senderName: currentUser.name, timestamp: serverTimestamp(), _localTime: Date.now(), edited: false, read: false, delivered: false, ...replyData });
+        await updateDoc(doc(db, "chats", currentChatId), { lastMessage: messageText, lastMessageTime: serverTimestamp() });
+        showDynamicIsland('✓', 'message');
+        const chatDoc = await getDoc(doc(db, "chats", currentChatId));
+        const otherMember = chatDoc.data().members?.find(m => m.uid !== currentUser.uid);
+        if (otherMember) {
+            addDoc(collection(db, 'notifications'), {
+                recipientId: otherMember.uid, senderName: currentUser.name || currentUser.username,
+                messageText: messageText, chatId: currentChatId,
+                timestamp: new Date(), read: false
+            }).catch(() => {});
+        }
+    } catch(e) {
+        const optEl = area?.querySelector(`[data-msg-id="${optimisticMsg.id}"]`);
+        if (optEl) optEl.remove();
+        if (e.code === 'resource-exhausted') {
+            showDynamicIsland('Сервер перегружен, попробуйте позже', 'error');
+        } else {
+            showDynamicIsland('Ошибка отправки: ' + (e.message || e), 'error');
+        }
     }
 }
 
@@ -1484,18 +1687,56 @@ if (sendBtn) sendBtn.onclick = sendMessage;
 if (messageInput) {
     messageInput.addEventListener('input', toggleSendButton);
     messageInput.addEventListener('keypress', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+    let typingTimeout = null;
+    messageInput.addEventListener('input', () => {
+        if (!currentUser || !currentChatOtherId) return;
+        updateDoc(doc(db, 'users', currentUser.uid), { typing: currentChatOtherId, typingAt: Date.now() }).catch(() => {});
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+            updateDoc(doc(db, 'users', currentUser.uid), { typing: null }).catch(() => {});
+        }, 2000);
+    });
+}
+
+let unsubTyping = null;
+function listenTyping(uid) {
+    if (unsubTyping) unsubTyping();
+    const typingEl = document.getElementById('typingIndicator');
+    const statusEl = document.getElementById('chatTargetStatus');
+    if (!typingEl || !uid) return;
+    unsubTyping = onSnapshot(doc(db, 'users', uid), (snap) => {
+        const data = snap.data();
+        if (data && data.typing && data.typingAt && (Date.now() - data.typingAt < 5000)) {
+            typingEl.style.display = 'flex';
+            if (statusEl) statusEl.style.display = 'none';
+        } else {
+            typingEl.style.display = 'none';
+            if (statusEl) statusEl.style.display = '';
+        }
+    });
 }
 
 const backBtn = document.getElementById('btnExitChat');
 if (backBtn) {
     backBtn.onclick = () => {
         if (unsubMessages) unsubMessages();
+        if (unsubTyping) unsubTyping();
         clearChatUserSubscription();
         const chatView = document.getElementById('chatView');
         if (chatView) { chatView.style.display = 'none'; chatView.classList.remove('chat-open'); }
         currentChatId = null;
         currentChatOtherId = null;
     };
+}
+
+// Desktop titlebar buttons
+if (window.SparkEngine?.window) {
+    const tbMinimize = document.getElementById('titlebarMinimize');
+    const tbMaximize = document.getElementById('titlebarMaximize');
+    const tbClose = document.getElementById('titlebarClose');
+    if (tbMinimize) tbMinimize.addEventListener('click', () => SparkEngine.window.minimize());
+    if (tbMaximize) tbMaximize.addEventListener('click', () => SparkEngine.window.maximize());
+    if (tbClose) tbClose.addEventListener('click', () => SparkEngine.window.close());
 }
 
 const saveEditBtn = document.getElementById('btnSaveEdit');
@@ -1621,6 +1862,8 @@ async function forwardToChat(targetChatId) {
     await updateDoc(doc(db, 'chats', targetChatId), { lastMessage: msgData.type === 'text' ? msgData.text : `[${msgData.type}]`, lastMessageTime: serverTimestamp() });
     showDynamicIsland('Переслано', 'success');
     window._forwardMsgData = null;
+    document.getElementById('forwardPickerModal').style.display = 'none';
+    openChat(targetChatId);
 }
 
 document.getElementById('btnCancelForward')?.addEventListener('click', () => {
@@ -1759,18 +2002,8 @@ if (videoCallBtn) {
     });
 }
 
-// Toggle call buttons on header name click
-document.getElementById('chatHeaderInfo')?.addEventListener('click', (e) => {
-    if (!currentChatOtherId) return;
-    const actions = document.getElementById('chatHeaderActions');
-    if (actions) actions.classList.toggle('open');
-});
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.hdr-capsule') && !e.target.closest('.hdr-actions')) {
-        const actions = document.getElementById('chatHeaderActions');
-        if (actions) actions.classList.remove('open');
-    }
-});
+// Call buttons are now always visible in header (Discord style)
+// Old dropdown toggle removed
 
 document.getElementById('endCallBtn')?.addEventListener('click', stopCall);
 document.getElementById('btnDeclineCall')?.addEventListener('click', stopCall);
@@ -1783,10 +2016,11 @@ document.getElementById('toggleMicBtn')?.addEventListener('click', () => {
 document.getElementById('toggleCameraBtn')?.addEventListener('click', () => {
     const enabled = toggleLocalVideo();
     if (enabled !== null) {
-        document.getElementById('toggleCameraBtn').innerHTML = enabled ? '<i class="fas fa-camera"></i>' : '<i class="fas fa-video-slash"></i>';
+        document.getElementById('toggleCameraBtn').innerHTML = enabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
     }
 });
 document.getElementById('switchCameraBtn')?.addEventListener('click', triggerCameraSwitch);
+document.getElementById('toggleScreenShareBtn')?.addEventListener('click', toggleScreenShare);
 
 const circleRecordBtnGlobal = document.getElementById('circleRecordBtn');
 if (circleRecordBtnGlobal) {
@@ -1905,7 +2139,23 @@ if (btnStep2) {
                 email = `${clean}_${userData.uid}@sparkapp.com`;
             }
             
-            await signInWithEmailAndPassword(auth, email, pass);
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+                saveAccountToStorage({ uid: users.docs[0].id, ...userData, email }, pass);
+            } catch(innerErr) {
+                if (innerErr.code === 'auth/network-request-failed') {
+                    showDynamicIsland('Ошибка сети. Повторяю...', 'info');
+                    await new Promise(r => setTimeout(r, 2000));
+                    try {
+                        await signInWithEmailAndPassword(auth, email, pass);
+                        saveAccountToStorage({ uid: users.docs[0].id, ...userData, email }, pass);
+                    } catch(e2) {
+                        showDynamicIsland('Сеть недоступна. Проверьте подключение.', 'error');
+                    }
+                } else {
+                    throw innerErr;
+                }
+            }
         } catch(e) { 
             console.error("Auth Error:", e);
             if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
@@ -1952,6 +2202,7 @@ if (btnRegister) {
                 online: true 
             });
             showDynamicIsland('Регистрация успешна!', 'success');
+            saveAccountToStorage({ uid: user.user.uid, name, username, email }, pass);
             // Auto-subscribe to SPARK channel
             subscribeToSparkChannel(user.user.uid, name, username);
         } catch(e) { showDynamicIsland(e.message, 'error'); }
@@ -1961,21 +2212,124 @@ if (btnRegister) {
 const logoutSettingsButton = document.getElementById('btn-logout');
 if (logoutSettingsButton) {
     logoutSettingsButton.addEventListener('click', async () => {
-        if (confirm('Выйти из аккаунта?')) {
+        try {
             await setOfflineStatus();
+        } catch(e) {}
+        try {
+            if (unsubMessages) { unsubMessages(); unsubMessages = null; }
+            if (unsubChats) { unsubChats(); unsubChats = null; }
+            if (onlineStatusInterval) { clearInterval(onlineStatusInterval); onlineStatusInterval = null; }
+            if (notifUnsub) { notifUnsub(); notifUnsub = null; }
+            removeAccountFromStorage(currentUser?.uid);
+            currentUser = null;
             await signOut(auth);
+        } catch(e) {}
+        const appContainer = document.getElementById('app');
+        if (appContainer) appContainer.style.display = 'none';
+        showScreen(0);
+        closePanel('settings');
+        closePanel('profile');
+    });
+}
+
+// ========== СИСТЕМА АККАУНТОВ (как Telegram) ==========
+function getSavedAccounts() {
+    try { return JSON.parse(localStorage.getItem('spark-accounts') || '[]'); } catch { return []; }
+}
+
+function saveAccountToStorage(userData, password) {
+    const accounts = getSavedAccounts();
+    const existing = accounts.findIndex(a => a.uid === userData.uid);
+    const accountData = {
+        uid: userData.uid,
+        name: userData.name || '',
+        username: userData.username || '',
+        avatarUrl: userData.avatarUrl || '',
+        email: userData.email || '',
+        password: password || ''
+    };
+    if (existing >= 0) {
+        accounts[existing] = { ...accounts[existing], ...accountData };
+    } else {
+        accounts.push(accountData);
+    }
+    localStorage.setItem('spark-accounts', JSON.stringify(accounts));
+}
+
+function removeAccountFromStorage(uid) {
+    const accounts = getSavedAccounts().filter(a => a.uid !== uid);
+    localStorage.setItem('spark-accounts', JSON.stringify(accounts));
+}
+
+function renderDrawerAccounts() {
+    const list = document.getElementById('drawerAccountList');
+    if (!list) return;
+    const accounts = getSavedAccounts();
+    const currentUid = currentUser?.uid;
+    list.innerHTML = accounts.map(a => `
+        <div class="drawer-account-item${a.uid === currentUid ? ' active' : ''}" data-uid="${a.uid}" data-email="${a.email || ''}" data-password="${a.password || ''}" style="display:flex;align-items:center;gap:12px;padding:8px 16px;cursor:pointer;border-radius:10px;${a.uid === currentUid ? 'background:rgba(255,255,255,0.08);' : ''}transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='${a.uid === currentUid ? 'rgba(255,255,255,0.08)' : 'transparent'}'">
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#333,#111);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:700;flex-shrink:0;overflow:hidden;">
+                ${a.avatarUrl ? `<img src="${a.avatarUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;">${(a.name || a.username || '?')[0].toUpperCase()}</div>` : (a.name || a.username || '?')[0].toUpperCase()}
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name || 'Без имени'}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.username || ''}</div>
+            </div>
+            ${a.uid === currentUid ? '<i class="fas fa-check" style="font-size:12px;color:rgba(255,255,255,0.5);"></i>' : '<i class="fas fa-chevron-right" style="font-size:10px;color:rgba(255,255,255,0.2);"></i>'}
+        </div>
+    `).join('');
+
+    list.querySelectorAll('.drawer-account-item').forEach(el => {
+        el.addEventListener('click', async () => {
+            const uid = el.dataset.uid;
+            const email = el.dataset.email;
+            const password = el.dataset.password;
+            if (uid === currentUid) return;
+            
+            if (email && password) {
+                closeHamburger();
+                showDynamicIsland('Переключение аккаунта...', 'info');
+                await setOfflineStatus();
+                if (unsubMessages) unsubMessages();
+                if (unsubChats) unsubChats();
+                if (onlineStatusInterval) clearInterval(onlineStatusInterval);
+                currentUser = null;
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    location.reload();
+                } catch (e) {
+                    showDynamicIsland('Ошибка переключения: ' + (e.message || e.code), 'error');
+                    location.reload();
+                }
+            } else {
+                closeHamburger();
+                showDynamicIsland('Пароль не сохранён. Войдите заново.', 'error');
+            }
+        });
+    });
+}
+
+const addAccountBtn = document.getElementById('drawerAddAccountBtn');
+if (addAccountBtn) {
+    addAccountBtn.addEventListener('click', async () => {
+        closeHamburger();
+        if (confirm('Добавить новый аккаунт? Текущий аккаунт будет сохранён.')) {
+            await setOfflineStatus();
             if (unsubMessages) unsubMessages();
             if (unsubChats) unsubChats();
             if (onlineStatusInterval) clearInterval(onlineStatusInterval);
+            await signOut(auth);
             const appContainer = document.getElementById('app');
             if (appContainer) appContainer.style.display = 'none';
+            showScreen(0);
         }
     });
 }
 
 // ========== UI HELPERS ==========
 document.getElementById('tab-chats-btn')?.addEventListener('click', (e) => switchTab('chats', e.currentTarget));
-document.getElementById('tab-settings-btn')?.addEventListener('click', (e) => switchTab('settings', e.currentTarget));
+document.getElementById('tab-feed-btn')?.addEventListener('click', (e) => { switchTab('feed', e.currentTarget); loadFeed(); });
+document.getElementById('tab-profile-btn')?.addEventListener('click', (e) => { switchTab('profile', e.currentTarget); loadProfileTab(); loadAuctionList(); });
 document.getElementById('btn-profile-edit')?.addEventListener('click', () => openPanel('profile'));
 document.getElementById('btn-theme-edit')?.addEventListener('click', () => openPanel('appearance'));
 document.getElementById('btn-lang-edit')?.addEventListener('click', () => {
@@ -1988,9 +2342,151 @@ document.getElementById('btn-lang-edit')?.addEventListener('click', () => {
 document.getElementById('btn-security-edit')?.addEventListener('click', () => openPanel('security'));
 document.getElementById('btn-storage-edit')?.addEventListener('click', () => openPanel('storage'));
 document.getElementById('btn-devices-edit')?.addEventListener('click', () => { loadDevices(); openPanel('devices'); });
-document.getElementById('btn-premium-edit')?.addEventListener('click', () => { loadPremiumStatus(); openPanel('premium'); });
-document.getElementById('btn-admin-premium-edit')?.addEventListener('click', () => { loadAdminReceiptsList(); loadAdminPremiumList(); openPanel('adminPremium'); });
+document.getElementById('btn-premium-edit')?.addEventListener('click', () => { loadPremiumStatus(); loadUserStars(); openPanel('premium'); });
+document.getElementById('btn-admin-premium-edit')?.addEventListener('click', () => { openPanel('adminPremium'); loadGiftPricesForAdmin(); });
 document.getElementById('btn-custom-edit')?.addEventListener('click', () => openPanel('language'));
+
+// ========== PROFILE TAB ==========
+function loadProfileTab() {
+    if (!currentUser) return;
+    const avatar = document.getElementById('profileTabAvatar');
+    const name = document.getElementById('profileTabName');
+    const username = document.getElementById('profileTabUsername');
+    const coverImg = document.getElementById('profileCoverImg');
+    if (avatar) renderAvatar(avatar, currentUser);
+    if (name) name.textContent = currentUser.name || 'Профиль';
+    if (username) username.textContent = currentUser.username || '';
+    if (coverImg && currentUser.profileBgUrl) {
+        coverImg.src = currentUser.profileBgUrl;
+        coverImg.style.display = 'block';
+    }
+    loadUserStars();
+    loadProfilePosts();
+}
+
+let _profileTabMode = 'posts';
+document.getElementById('profileTabPosts')?.addEventListener('click', () => {
+    _profileTabMode = 'posts';
+    document.getElementById('profileTabPosts').style.background = 'var(--accent)';
+    document.getElementById('profileTabPosts').style.color = 'var(--bg)';
+    document.getElementById('profileTabReposts').style.background = 'transparent';
+    document.getElementById('profileTabReposts').style.color = 'var(--text-secondary)';
+    document.getElementById('profilePostsList').style.display = 'block';
+    document.getElementById('profileRepostsList').style.display = 'none';
+    loadProfilePosts();
+});
+document.getElementById('profileTabReposts')?.addEventListener('click', () => {
+    _profileTabMode = 'reposts';
+    document.getElementById('profileTabReposts').style.background = 'var(--accent)';
+    document.getElementById('profileTabReposts').style.color = 'var(--bg)';
+    document.getElementById('profileTabPosts').style.background = 'transparent';
+    document.getElementById('profileTabPosts').style.color = 'var(--text-secondary)';
+    document.getElementById('profileRepostsList').style.display = 'block';
+    document.getElementById('profilePostsList').style.display = 'none';
+    loadProfileReposts();
+});
+
+async function loadProfilePosts() {
+    const list = document.getElementById('profilePostsList');
+    if (!list || !currentUser) return;
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);"><i class="fas fa-spinner fa-spin"></i></div>';
+    try {
+        const snap = await getDocs(query(collection(db, "feed"), where("authorId", "==", currentUser.uid)));
+        let posts = [];
+        snap.forEach(d => posts.push({ id: d.id, ...d.data() }));
+        posts = posts.filter(p => !p.repostFrom);
+        posts.sort((a, b) => {
+            const ta = a.timestamp?.toMillis?.() || a._localTime || 0;
+            const tb = b.timestamp?.toMillis?.() || b._localTime || 0;
+            return tb - ta;
+        });
+        list.innerHTML = '';
+        if (posts.length === 0) {
+            list.innerHTML = '<p style="text-align:center;color:var(--text-secondary);font-size:14px;">Нет публикаций</p>';
+            return;
+        }
+        const frag = document.createDocumentFragment();
+        for (const p of posts) frag.appendChild(renderFeedPost(p));
+        list.appendChild(frag);
+    } catch(e) {
+        list.innerHTML = '<p style="text-align:center;color:var(--text-secondary);">Ошибка загрузки</p>';
+    }
+}
+
+async function loadProfileReposts() {
+    const list = document.getElementById('profileRepostsList');
+    if (!list || !currentUser) return;
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);"><i class="fas fa-spinner fa-spin"></i></div>';
+    try {
+        const snap = await getDocs(query(collection(db, "feed"), where("authorId", "==", currentUser.uid)));
+        let posts = [];
+        snap.forEach(d => posts.push({ id: d.id, ...d.data() }));
+        posts = posts.filter(p => p.repostFrom);
+        posts.sort((a, b) => {
+            const ta = a.timestamp?.toMillis?.() || a._localTime || 0;
+            const tb = b.timestamp?.toMillis?.() || b._localTime || 0;
+            return tb - ta;
+        });
+        list.innerHTML = '';
+        if (posts.length === 0) {
+            list.innerHTML = '<p style="text-align:center;color:var(--text-secondary);font-size:14px;">Нет репостов</p>';
+            return;
+        }
+        const frag = document.createDocumentFragment();
+        for (const p of posts) frag.appendChild(renderFeedPost(p));
+        list.appendChild(frag);
+    } catch(e) {
+        list.innerHTML = '<p style="text-align:center;color:var(--text-secondary);">Ошибка загрузки</p>';
+    }
+}
+
+document.getElementById('btnProfileAvatarUpload')?.addEventListener('click', () => {
+    document.getElementById('avatarFileInput')?.click();
+});
+document.getElementById('btnProfileCoverUpload')?.addEventListener('click', () => {
+    document.getElementById('profileBgInput')?.click();
+});
+document.getElementById('profileBgInput')?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser) return;
+    showDynamicIsland('Сжатие изображения...', 'file');
+    try {
+        const compressed = await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                const maxW = 400;
+                const maxH = 200;
+                let w = img.width, h = img.height;
+                if (w > maxW) { h = h * maxW / w; w = maxW; }
+                if (h > maxH) { w = w * maxH / h; h = maxH; }
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(w);
+                canvas.height = Math.round(h);
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.6));
+            };
+            img.onerror = () => reject(new Error('image load failed'));
+            img.src = URL.createObjectURL(file);
+        });
+        await updateDoc(doc(db, "users", currentUser.uid), { profileBgUrl: compressed });
+        currentUser.profileBgUrl = compressed;
+        loadProfileBg(compressed);
+        showDynamicIsland('Шапка профиля обновлена', 'success');
+    } catch (err) {
+        console.error('Profile cover upload error:', err);
+        showDynamicIsland('Ошибка загрузки шапки: ' + (err.message || err), 'error');
+    }
+    e.target.value = '';
+});
+document.getElementById('btnProfileWallet')?.addEventListener('click', () => {
+    openPanel('wallet');
+    loadUserStars();
+    loadWalletHistory();
+});
+document.getElementById('btnOpenSettingsFromProfile')?.addEventListener('click', () => {
+    openPanel('settings');
+});
 
 // HAMBURGER MENU
 function openHamburgerDrawer() {
@@ -2002,6 +2498,7 @@ function openHamburgerDrawer() {
         renderAvatar(document.getElementById('drawerAvatar'), { avatarUrl: currentUser.avatarUrl, name: currentUser.name });
         const dn = document.getElementById('drawerName'); if (dn) dn.textContent = currentUser.name;
         const du = document.getElementById('drawerUsername'); if (du) du.textContent = '@' + (currentUser.username || '');
+        renderDrawerAccounts();
     }
 }
 document.getElementById('btnHamburger')?.addEventListener('click', openHamburgerDrawer);
@@ -2054,17 +2551,43 @@ document.getElementById('drawerNightToggle')?.addEventListener('change', (e) => 
     applySavedTheme();
 });
 
-document.getElementById('closeProfilePanelBtn')?.addEventListener('click', () => closePanel('profile'));
-document.getElementById('closeAppearancePanelBtn')?.addEventListener('click', () => closePanel('appearance'));
-document.getElementById('closeLangPanelBtn')?.addEventListener('click', () => closePanel('language'));
-document.getElementById('closeDevicesPanelBtn')?.addEventListener('click', () => closePanel('devices'));
-document.getElementById('closeSecurityPanelBtn')?.addEventListener('click', () => closePanel('security'));
-document.getElementById('closeStoragePanelBtn')?.addEventListener('click', () => closePanel('storage'));
+document.getElementById('closeProfilePanelBtn')?.addEventListener('click', () => openPanel('settings'));
+document.getElementById('closeAppearancePanelBtn')?.addEventListener('click', () => openPanel('settings'));
+document.getElementById('closeLangPanelBtn')?.addEventListener('click', () => openPanel('settings'));
+document.getElementById('closeDevicesPanelBtn')?.addEventListener('click', () => openPanel('settings'));
+document.getElementById('closeSecurityPanelBtn')?.addEventListener('click', () => openPanel('settings'));
+document.getElementById('closeStoragePanelBtn')?.addEventListener('click', () => openPanel('settings'));
 document.getElementById('closePremiumPanelBtn')?.addEventListener('click', () => closePanel('premium'));
 document.getElementById('closeAdminPremiumPanelBtn')?.addEventListener('click', () => closePanel('adminPremium'));
+document.getElementById('closeWalletPanelBtn')?.addEventListener('click', () => closePanel('wallet'));
+document.getElementById('closeGiftsPanelBtn')?.addEventListener('click', () => closePanel('gifts'));
+document.getElementById('closeClickerPanelBtn')?.addEventListener('click', () => closePanel('clicker'));
+document.getElementById('closeAuctionPanelBtn')?.addEventListener('click', () => closePanel('auction'));
 document.getElementById('closeCustomPanelBtn')?.addEventListener('click', () => closePanel('custom'));
+document.getElementById('closeSettingsPanelBtn')?.addEventListener('click', () => closePanel('settings'));
 
 initPanelHandlers({ showToast: showDynamicIsland });
+
+// Secure Mode toggle with animated checkmark
+let secureModeEnabled = localStorage.getItem('spark-secure-mode') === 'true';
+function updateSecureModeUI() {
+    const check = document.getElementById('secureModeCheck');
+    if (check) {
+        check.style.opacity = secureModeEnabled ? '1' : '0';
+        check.style.transform = secureModeEnabled ? 'scale(1)' : 'scale(0)';
+    }
+}
+document.getElementById('secureModeBtn')?.addEventListener('click', () => {
+    secureModeEnabled = !secureModeEnabled;
+    localStorage.setItem('spark-secure-mode', secureModeEnabled);
+    updateSecureModeUI();
+    showDynamicIsland(secureModeEnabled ? 'Secure Mode включён' : 'Secure Mode выключен', secureModeEnabled ? 'success' : 'info');
+});
+setTimeout(updateSecureModeUI, 100);
+
+// Expose functions to window for inline onclick handlers
+window.openPanel = openPanel;
+window.closePanel = closePanel;
 
 document.getElementById('btnSaveProfile')?.addEventListener('click', async () => {
     if (!currentUser) return;
@@ -2209,7 +2732,7 @@ function openChannel(id, name, channelData) {
     
     // Hide call buttons for channels
     const actions = document.getElementById('chatHeaderActions');
-    if (actions) { actions.classList.remove('open'); actions.style.display = 'none'; }
+    if (actions) { actions.style.display = 'none'; }
     
     // Check if user can write
     const isOwner = channelData.ownerId === currentUser.uid;
@@ -2226,7 +2749,6 @@ function openChannel(id, name, channelData) {
     
     markMessagesAsRead(id);
     
-    // Subscribe to messages
     let msgsQuery = query(collection(db, "messages"), where("chatId", "==", id));
     unsubMessages = onSnapshot(msgsQuery, async (snap) => {
         let msgs = [];
@@ -2265,6 +2787,8 @@ function openChannel(id, name, channelData) {
                     content = `<audio controls preload="metadata" playsinline src="${audioSrc}" style="max-width:220px;height:40px;border-radius:20px;"></audio>`;
                 } else if (msg.type === 'system') {
                     content = `<div class="message-text" style="font-style: italic; opacity: 0.7;">${escape(msg.text)}</div>`;
+                } else if (msg.type === 'gift') {
+                    content = renderGiftMessage(msg, isMy);
                 } else {
                     let displayText = escape(msg.text);
                     const emojiOnly = isEmojiOnly(msg.text);
@@ -2285,17 +2809,17 @@ function openChannel(id, name, channelData) {
                 if (msg.replyTo) {
                     const replySnippet = msg.replyToText ? escape(msg.replyToText).substring(0, 80) : '';
                     const replySender = msg.replyToSenderName ? escape(msg.replyToSenderName) : '';
-                    replyHtml = `<div class="reply-quote" style="border-left:3px solid var(--accent);padding:4px 10px;margin-bottom:6px;border-radius:4px;background:rgba(108,92,231,0.08);font-size:12px;"><div style="font-weight:600;color:var(--accent);font-size:11px;">${replySender}</div><div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">${replySnippet}</div></div>`;
+                    replyHtml = `<div class="reply-quote" style="border-left:3px solid var(--accent);padding:4px 10px;margin-bottom:6px;border-radius:4px;background:rgba(255,255,255,0.08);font-size:12px;"><div style="font-weight:600;color:var(--accent);font-size:11px;">${replySender}</div><div style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">${replySnippet}</div></div>`;
                 }
                 let forwardHtml = '';
                 if (msg.forwardedFrom) {
                     forwardHtml = `<div style="font-size:11px;color:var(--accent);font-weight:600;margin-bottom:4px;"><i class="fas fa-share" style="margin-right:4px;font-size:10px;"></i>Переслано от ${escape(msg.forwardedFrom)}</div>`;
                 }
-                bubble.innerHTML = `<div>${senderLabel}${forwardHtml}${replyHtml}${content}</div><div class="message-time">${msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || ''}</div>`;
+                bubble.innerHTML = `<div>${senderLabel}${forwardHtml}${replyHtml}${content}</div><div class="message-time">${msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || ''}${getReadCheckHtml(msg, isMy)}</div>`;
                 
                 if (msg.type === 'circle') initCirclePlayer(bubble);
                 
-                if (isMy && msg.type !== 'system' && msg.type !== 'circle') {
+                if (isMy && msg.type !== 'system' && msg.type !== 'circle' && msg.type !== 'gift') {
                     bubble.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const msgMenu = document.getElementById('messageContextMenu');
@@ -2307,16 +2831,19 @@ function openChannel(id, name, channelData) {
                         showContextMenu(msgMenu, e.clientX, e.clientY);
                     });
                 }
-                if (!isMy && msg.type !== 'system' && msg.type !== 'circle') {
+                if (!isMy && msg.type !== 'system' && msg.type !== 'circle' && msg.type !== 'gift') {
                     bubble.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const bar = document.getElementById('msgActionBar');
                         if (!bar) return;
                         bar.style.display = 'flex';
-                        const bw = 280, bh = 44;
-                        let left = Math.max(10, Math.min(e.clientX - bw/2, window.innerWidth - bw - 10));
-                        let top = e.clientY - bh - 12;
-                        if (top < 10) top = e.clientY + 12;
+                        const bw = 280;
+                        const bubbleRect = bubble.getBoundingClientRect();
+                        let left = bubbleRect.right - bw;
+                        let top = bubbleRect.bottom + 8;
+                        if (left < 10) left = 10;
+                        if (left + bw > window.innerWidth - 10) left = window.innerWidth - bw - 10;
+                        if (top + 200 > window.innerHeight) top = bubbleRect.top - 8 - 200;
                         bar.style.left = left + 'px';
                         bar.style.top = Math.max(10, top) + 'px';
                         bar.dataset.msgId = msg.id;
@@ -2832,13 +3359,39 @@ async function initSparkChannel() {
 // ========== УЛУЧШЕННАЯ ИНФО ПРОФИЛЯ ==========
 async function openProfileModal(userId) {
     if (!userId) return;
+    window._currentProfileModalUserId = userId;
     const userDoc = await getDoc(doc(db, "users", userId));
     if (!userDoc.exists()) return;
     const u = userDoc.data();
     const name = await getCustomNameForUser(userId);
     
     renderAvatar(document.getElementById('modalTargetAvatar'), { avatarUrl: u.avatarUrl, name });
-    document.getElementById('modalTargetName').textContent = name;
+    document.getElementById('modalTargetName').innerHTML = name + getPremiumBadge(u);
+    
+    // Show custom subscription label if exists
+    const myUserDoc = await getDoc(doc(db, "users", currentUser.uid));
+    const myData = myUserDoc.data();
+    const customSub = (myData.customSubscriptions || []).find(s => s.userId === userId);
+    const labelEl = document.getElementById('modalSubscriptionLabel');
+    if (labelEl) {
+        if (customSub) {
+            labelEl.textContent = customSub.name;
+            labelEl.style.display = 'block';
+        } else {
+            labelEl.style.display = 'none';
+        }
+    }
+    
+    const modalBgImg = document.getElementById('modalProfileBgImg');
+    const modalBgWrap = document.getElementById('modalProfileBg');
+    if (modalBgImg && modalBgWrap) {
+        if (u.profileBgUrl) {
+            modalBgImg.src = u.profileBgUrl;
+            modalBgImg.style.display = 'block';
+        } else {
+            modalBgImg.style.display = 'none';
+        }
+    }
     const modalUser = document.getElementById('modalTargetUser');
     if (modalUser) { modalUser.style.display = 'block'; modalUser.textContent = u.username || ''; }
     document.getElementById('modalTargetBio').textContent = u.bio || t('noInfo');
@@ -2917,8 +3470,138 @@ async function openProfileModal(userId) {
             <div style="text-align:center;"><div style="font-size:20px;font-weight:800;color:var(--accent);">${stats.messages}</div><div style="font-size:11px;color:var(--text-secondary);">Всего</div></div>
         </div>`;
     }
+
+    // Load publications in modal
+    const modalPostsList = document.getElementById('modalPostsList');
+    const modalRepostsList = document.getElementById('modalRepostsList');
+    const modalTabPosts = document.getElementById('modalTabPosts');
+    const modalTabReposts = document.getElementById('modalTabReposts');
+    if (modalTabPosts) {
+        modalTabPosts.onclick = () => {
+            modalTabPosts.style.background = 'var(--accent)'; modalTabPosts.style.color = 'var(--bg)'; modalTabPosts.classList.add('active');
+            modalTabReposts.style.background = 'transparent'; modalTabReposts.style.color = 'var(--text-secondary)'; modalTabReposts.classList.remove('active');
+            modalPostsList.style.display = 'block'; modalRepostsList.style.display = 'none';
+        };
+    }
+    if (modalTabReposts) {
+        modalTabReposts.onclick = () => {
+            modalTabReposts.style.background = 'var(--accent)'; modalTabReposts.style.color = 'var(--bg)'; modalTabReposts.classList.add('active');
+            modalTabPosts.style.background = 'transparent'; modalTabPosts.style.color = 'var(--text-secondary)'; modalTabPosts.classList.remove('active');
+            modalRepostsList.style.display = 'block'; modalPostsList.style.display = 'none';
+            loadModalReposts(userId);
+        };
+    }
+    if (modalPostsList) {
+        modalPostsList.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-secondary);font-size:13px;"><i class="fas fa-spinner fa-spin"></i></div>';
+        try {
+            const snap = await getDocs(query(collection(db, "feed"), where("authorId", "==", userId)));
+            let posts = [];
+            snap.forEach(d => posts.push({ id: d.id, ...d.data() }));
+            posts = posts.filter(p => !p.repostFrom);
+            posts.sort((a, b) => (b.timestamp?.toMillis?.() || b._localTime || 0) - (a.timestamp?.toMillis?.() || a._localTime || 0));
+            modalPostsList.innerHTML = '';
+            if (posts.length === 0) {
+                modalPostsList.innerHTML = '<div style="text-align:center;color:var(--text-secondary);font-size:14px;padding:8px 0;">Нет публикаций</div>';
+            } else {
+                for (const p of posts) {
+                    const pDiv = document.createElement('div');
+                    pDiv.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--border);';
+                    let mediaHtml = '';
+                    if (p.mediaUrl) {
+                        if (p.mediaType === 'video') mediaHtml = `<video src="${p.mediaUrl}" controls playsinline style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:6px;"></video>`;
+                        else mediaHtml = `<img src="${p.mediaUrl}" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:6px;cursor:pointer;" onclick="window.open(this.src,'_blank')">`;
+                    }
+                    pDiv.innerHTML = `<div style="font-size:13px;color:var(--text-secondary);">${p.timestamp?.toDate ? p.timestamp.toDate().toLocaleString('ru-RU', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : ''}</div>
+                        ${p.text ? `<div style="font-size:14px;margin-top:4px;">${escape(p.text).replace(/\n/g,'<br>')}</div>` : ''}
+                        ${mediaHtml}`;
+                    modalPostsList.appendChild(pDiv);
+                }
+            }
+        } catch(e) {
+            modalPostsList.innerHTML = '<div style="text-align:center;color:var(--text-secondary);font-size:13px;">Ошибка загрузки</div>';
+        }
+    }
+
+    // Load gift history in modal
+    const modalGiftsSection = document.getElementById('modalGiftsList');
+    if (modalGiftsSection) {
+        try {
+            const giftSnap = await getDocs(query(collection(db, "messages"), where("type", "==", "gift")));
+            const giftsReceived = [];
+            const giftsSent = [];
+            giftSnap.forEach(d => {
+                const msg = d.data();
+                if (msg.senderId === userId && msg.senderId !== currentUser.uid) {
+                    giftsReceived.push(msg);
+                }
+                if (msg.senderId === currentUser.uid && userId !== currentUser.uid) {
+                    giftsSent.push(msg);
+                }
+                if (userId === currentUser.uid) {
+                    if (msg.senderId !== currentUser.uid) giftsReceived.push(msg);
+                    else giftsSent.push(msg);
+                }
+            });
+            let html = '';
+            if (giftsReceived.length > 0) {
+                html += '<div style="margin-top:12px;"><div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">Полученные подарки:</div><div style="display:flex;gap:8px;flex-wrap:wrap;">';
+                for (const g of giftsReceived) {
+                    html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center;min-width:60px;"><div style="font-size:24px;">${g.giftEmoji || '🎁'}</div><div style="font-size:10px;color:var(--text-secondary);">${g.giftName || ''}</div></div>`;
+                }
+                html += '</div></div>';
+            }
+            if (giftsSent.length > 0) {
+                html += '<div style="margin-top:12px;"><div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">Отправленные подарки:</div><div style="display:flex;gap:8px;flex-wrap:wrap;">';
+                for (const g of giftsSent) {
+                    html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center;min-width:60px;opacity:0.7;"><div style="font-size:24px;">${g.giftEmoji || '🎁'}</div><div style="font-size:10px;color:var(--text-secondary);">${g.giftName || ''}</div></div>`;
+                }
+                html += '</div></div>';
+            }
+            if (giftsReceived.length === 0 && giftsSent.length === 0) {
+                html = '<div style="text-align:center;color:var(--text-secondary);font-size:12px;margin-top:8px;">Нет подарков</div>';
+            }
+            modalGiftsSection.innerHTML = html;
+            modalGiftsSection.style.display = 'block';
+        } catch(e) {
+            modalGiftsSection.innerHTML = '';
+        }
+    }
     
     document.getElementById('profileInfoModal').style.display = 'flex';
+}
+
+async function loadModalReposts(userId) {
+    const list = document.getElementById('modalRepostsList');
+    if (!list) return;
+    list.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-secondary);font-size:13px;"><i class="fas fa-spinner fa-spin"></i></div>';
+    try {
+        const snap = await getDocs(query(collection(db, "feed"), where("authorId", "==", userId)));
+        let posts = [];
+        snap.forEach(d => posts.push({ id: d.id, ...d.data() }));
+        posts = posts.filter(p => p.repostFrom);
+        posts.sort((a, b) => (b.timestamp?.toMillis?.() || b._localTime || 0) - (a.timestamp?.toMillis?.() || a._localTime || 0));
+        list.innerHTML = '';
+        if (posts.length === 0) {
+            list.innerHTML = '<div style="text-align:center;color:var(--text-secondary);font-size:14px;padding:8px 0;">Нет репостов</div>';
+            return;
+        }
+        for (const p of posts) {
+            const pDiv = document.createElement('div');
+            pDiv.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--border);';
+            let mediaHtml = '';
+            if (p.mediaUrl) {
+                if (p.mediaType === 'video') mediaHtml = `<video src="${p.mediaUrl}" controls playsinline style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:6px;"></video>`;
+                else mediaHtml = `<img src="${p.mediaUrl}" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:6px;">`;
+            }
+            pDiv.innerHTML = `<div style="font-size:12px;color:var(--accent);font-weight:600;"><i class="fas fa-share" style="margin-right:4px;font-size:10px;"></i>Репост от ${escape(p.repostFrom)}</div>
+                <div style="font-size:13px;color:var(--text-secondary);margin-top:2px;">${p.timestamp?.toDate ? p.timestamp.toDate().toLocaleString('ru-RU', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : ''}</div>
+                ${p.text ? `<div style="font-size:14px;margin-top:4px;">${escape(p.text).replace(/\n/g,'<br>')}</div>` : ''}
+                ${mediaHtml}`;
+            list.appendChild(pDiv);
+        }
+    } catch(e) {
+        list.innerHTML = '<div style="text-align:center;color:var(--text-secondary);font-size:13px;">Ошибка загрузки</div>';
+    }
 }
 
 document.getElementById('chatTargetAvatar')?.addEventListener('click', async (e) => {
@@ -2929,6 +3612,26 @@ document.getElementById('chatTargetAvatar')?.addEventListener('click', async (e)
     }
     if (!currentChatOtherId) return;
     openProfileModal(currentChatOtherId);
+});
+
+document.getElementById('btnSetSubscription')?.addEventListener('click', async () => {
+    const userId = window._currentProfileModalUserId;
+    if (!userId || !currentUser) return;
+    
+    const myUserDoc = await getDoc(doc(db, "users", currentUser.uid));
+    const myData = myUserDoc.data();
+    const existing = (myData.customSubscriptions || []).find(s => s.userId === userId);
+    
+    const newName = prompt('Введите подпись (например: Мама, Папа, Друг):', existing?.name || '');
+    if (newName && newName.trim()) {
+        await addCustomSubscription(userId, newName.trim());
+        const labelEl = document.getElementById('modalSubscriptionLabel');
+        if (labelEl) { labelEl.textContent = newName.trim(); labelEl.style.display = 'block'; }
+    } else if (newName === '') {
+        await removeCustomSubscription(userId);
+        const labelEl = document.getElementById('modalSubscriptionLabel');
+        if (labelEl) labelEl.style.display = 'none';
+    }
 });
 
 // ========== PUSH-УВЕДОМЛЕНИЯ ==========
@@ -3006,62 +3709,81 @@ function setupForegroundNotifications() {
 // ========== AUTH STATE ==========
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        let docUser = await getDoc(doc(db, "users", user.uid));
-        if (docUser.exists()) {
-            currentUser = { uid: user.uid, ...docUser.data() };
-            
-            // Restore app state and settings
-            applySavedTheme();
-            applySavedLanguage();
-            applySavedWallpaper();
-            syncProfile(currentUser);
-            
-            // UI elements specific to logged in user
-            const myNameDisplay = document.getElementById('myNameDisplay');
-            if (myNameDisplay) myNameDisplay.textContent = currentUser.name;
-            const myUserDisplay = document.getElementById('myUserDisplay');
-            if (myUserDisplay) myUserDisplay.textContent = currentUser.username;
-            
-            // Load data
-            loadChats();
-            loadUserAvatar();
-            listenToIncomingCalls(currentUser);
-            startNotificationsListener(user.uid);
-            saveFCMToken(user.uid);
-            setupForegroundNotifications();
-            registerCurrentDevice();
-            initSparkChannel();
-            updateFaceIdStatus();
-            applyCustomSettings();
-            loadPremiumStatus();
-            if (isPremium(currentUser) || isCreator(currentUser)) setupAutoTranslate();
-            
-            // Show admin premium button for creator only
-            if (isCreator(currentUser)) {
-                const adminBtn = document.getElementById('btn-admin-premium-edit');
-                if (adminBtn) adminBtn.style.display = 'block';
-            }
-            
-            // Start online status heartbeat
-            onlineStatusInterval = setInterval(updateOnlineStatus, 15000);
-            updateOnlineStatus();
+        // ===== SHOW APP IMMEDIATELY — don't let async failures block UI =====
+        document.body.classList.add('logged-in');
+        const appContainer = document.getElementById('app');
+        if (appContainer) appContainer.style.display = 'flex';
 
-            const appContainer = document.getElementById('app');
-            if (appContainer) {
-                appContainer.style.display = 'flex';
+        // Remove splash immediately so it never blocks clicks
+        const splashEl = document.getElementById('splash');
+        if (splashEl) splashEl.remove();
+        const splashOverlayEl = document.getElementById('splashOverlay');
+        if (splashOverlayEl) splashOverlayEl.remove();
+
+        // Remove auth screens immediately — they overlay entire screen at z-index 9000
+        document.querySelectorAll('.screen').forEach(s => s.remove());
+
+        try {
+            let docUser = await getDoc(doc(db, "users", user.uid));
+            if (docUser.exists()) {
+                currentUser = { uid: user.uid, ...docUser.data() };
+                saveAccountToStorage(currentUser);
+                renderDrawerAccounts();
+
+                // Restore app state and settings
+                applySavedTheme();
+                applySavedLanguage();
+                applySavedWallpaper();
+                syncProfile(currentUser);
+                
+                // UI elements specific to logged in user
+                const myNameDisplay = document.getElementById('myNameDisplay');
+                if (myNameDisplay) myNameDisplay.innerHTML = currentUser.name + getPremiumBadge(currentUser);
+                const myUserDisplay = document.getElementById('myUserDisplay');
+                if (myUserDisplay) myUserDisplay.textContent = currentUser.username;
+                
+                // Load data
+                loadChats();
+                loadUserAvatar();
+                loadProfileBg(currentUser.profileBgUrl);
+                listenToIncomingCalls(currentUser);
+                startNotificationsListener(user.uid);
+                saveFCMToken(user.uid);
+                setupForegroundNotifications();
+                registerCurrentDevice();
+                initSparkChannel();
+                updateFaceIdStatus();
+                applyCustomSettings();
+                loadPremiumStatus();
+                loadUserStars();
+                loadGiftPrices();
+                renderGiftsList();
+                if (isCreator(currentUser)) loadGiftPricesForAdmin();
+                if (isPremium(currentUser) || isCreator(currentUser)) setupAutoTranslate();
+                
+                // Show admin premium button for creator only
+                const adminBtn = document.getElementById('btn-admin-premium-edit');
+                if (isCreator(currentUser)) {
+                    if (adminBtn) adminBtn.style.display = 'flex';
+                } else {
+                    if (adminBtn) adminBtn.style.display = 'none';
+                }
+                
+                // Start online status heartbeat
+                onlineStatusInterval = setInterval(updateOnlineStatus, 15000);
+                updateOnlineStatus();
+            } else {
+                showDynamicIsland('Профиль не найден', 'error');
             }
-            
-            // Hide auth screens
-            const authScreens = document.querySelectorAll('.screen');
-            authScreens.forEach(s => s.style.display = 'none');
-            
-            // Hide splash screen if it's still there
-            const splash = document.getElementById('splash');
-            if (splash) splash.style.display = 'none';
+        } catch (e) {
+            console.error("Auth state error:", e);
         }
     } else {
         currentUser = null;
-        if (onlineStatusInterval) clearInterval(onlineStatusInterval);
+        document.body.classList.remove('logged-in');
+        if (onlineStatusInterval) { clearInterval(onlineStatusInterval); onlineStatusInterval = null; }
+        if (unsubChats) { unsubChats(); unsubChats = null; }
+        if (unsubMessages) { unsubMessages(); unsubMessages = null; }
         const appContainer = document.getElementById('app');
         if (appContainer) appContainer.style.display = 'none';
         showScreen(0);
@@ -3080,32 +3802,39 @@ async function loadPremiumStatus() {
         
         if (data?.premium) {
             const activated = data.premiumActivatedAt?.toDate?.() || new Date(data.premiumActivatedAt);
-            if (statusText) {
-                statusText.innerHTML = `<span style="color:#6c5ce7;font-weight:700;">Активирован</span> ${activated ? '· ' + activated.toLocaleDateString('ru-RU') : ''}`;
+            let expiryText = '';
+            if (data.premiumPlan === 'month') {
+                const exp = new Date(activated.getTime() + 30*24*60*60*1000);
+                expiryText = ` · Истекает: ${exp.toLocaleDateString('ru-RU')}`;
+            } else if (data.premiumPlan === 'year') {
+                const exp = new Date(activated.getTime() + 365*24*60*60*1000);
+                expiryText = ` · Истекает: ${exp.toLocaleDateString('ru-RU')}`;
+            } else {
+                expiryText = ' · Без срока';
             }
-            const uploadBtn = document.getElementById('btnUploadReceipt');
-            const activateBtn = document.getElementById('btnActivatePremium');
-            if (uploadBtn) uploadBtn.style.display = 'none';
-            if (activateBtn) { activateBtn.textContent = 'Premium активирован ✓'; activateBtn.disabled = true; activateBtn.style.opacity = '0.6'; }
+            if (statusText) {
+                statusText.innerHTML = `<span style="color:#ffffff;font-weight:700;">Активирован</span> ${activated ? '· ' + activated.toLocaleDateString('ru-RU') : ''}${expiryText}`;
+            }
+            const checkBtn = document.getElementById('btnBuyPremiumStars');
+            if (checkBtn) { checkBtn.textContent = 'Premium активирован ✓'; checkBtn.disabled = true; checkBtn.style.opacity = '0.6'; }
         } else {
             if (statusText) statusText.textContent = 'Не активирован';
-            // Check if receipt is pending (client-side filter to avoid composite index)
-            const pendingSnap = await getDocs(query(collection(db, "premiumReceipts"), where("uid", "==", currentUser.uid)));
-            const hasPending = pendingSnap.docs.some(d => d.data().status === "pending");
-            if (hasPending) {
-                const uploadBtn = document.getElementById('btnUploadReceipt');
-                const activateBtn = document.getElementById('btnActivatePremium');
-                if (uploadBtn) { uploadBtn.textContent = '⏳ Квитанция на проверке'; uploadBtn.disabled = true; }
-                if (activateBtn) { activateBtn.style.display = 'none'; }
-                if (statusText) statusText.innerHTML = '<span style="color:#f39c12;">Квитанция на проверке...</span>';
-            }
         }
+        updatePaymentLink();
     } catch (e) {}
 }
 
-// Premium plan selection
 let selectedPlan = 'month';
 const planPrices = { month: '100 ₽', year: '500 ₽', forever: '1000 ₽' };
+const planAmounts = { month: 100, year: 500, forever: 1000 };
+const planLabels = { month: '1 месяц', year: '1 год', forever: 'Навсегда' };
+
+function updatePaymentLink() {
+    const comment = currentUser?.username || '';
+    const commentEl = document.getElementById('premiumPaymentComment');
+    if (commentEl) commentEl.textContent = comment || '@ваш_ник';
+}
+
 document.querySelectorAll('.premium-plan-option').forEach(opt => {
     opt.addEventListener('click', () => {
         document.querySelectorAll('.premium-plan-option').forEach(o => o.classList.remove('selected'));
@@ -3114,74 +3843,50 @@ document.querySelectorAll('.premium-plan-option').forEach(opt => {
         selectedPlan = opt.dataset.plan;
         const amountDisplay = document.getElementById('premiumAmountDisplay');
         if (amountDisplay) amountDisplay.textContent = planPrices[selectedPlan];
+        updatePaymentLink();
     });
 });
-// Auto-select month
 const defaultPlan = document.querySelector('.premium-plan-option[data-plan="month"]');
 if (defaultPlan) { defaultPlan.classList.add('selected'); defaultPlan.querySelector('input[type=radio]').checked = true; }
 
-// Receipt preview
-document.getElementById('btnUploadReceipt')?.addEventListener('click', () => {
-    document.getElementById('premiumReceiptInput')?.click();
-});
+// Phone payment removed - now using stars only
 
-document.getElementById('premiumReceiptInput')?.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    selectedReceiptFile = file;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-        const preview = document.getElementById('premiumReceiptPreview');
-        const img = document.getElementById('premiumReceiptImg');
-        if (preview && img) { img.src = ev.target.result; preview.style.display = 'block'; }
-    };
-    reader.readAsDataURL(file);
-});
-
-// Submit receipt
-document.getElementById('btnActivatePremium')?.addEventListener('click', async () => {
-    const msg = document.getElementById('premiumActivateMessage');
-    if (!selectedReceiptFile) { if (msg) { msg.style.display = 'block'; msg.textContent = 'Сначала загрузите квитанцию'; msg.style.color = '#ff3b30'; } return; }
-    
-    const activateBtn = document.getElementById('btnActivatePremium');
-    if (activateBtn) { activateBtn.textContent = 'Отправка...'; activateBtn.disabled = true; }
+document.getElementById('btnCheckPremiumPayment')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btnCheckPremiumPayment');
+    if (!btn || !currentUser) return;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Проверка...';
+    btn.disabled = true;
     
     try {
-        const dataUrl = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = () => reject(new Error('Не удалось прочитать файл'));
-            reader.readAsDataURL(selectedReceiptFile);
-        });
-        
-        const receiptDocRef = await addDoc(collection(db, "premiumReceipts"), {
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (userDoc.exists() && userDoc.data().premium) {
+            showDynamicIsland('Premium уже активирован!', 'success');
+            loadPremiumStatus();
+            return;
+        }
+        const pendingSnap = await getDocs(query(collection(db, "premiumReceipts"), where("uid", "==", currentUser.uid)));
+        const hasPending = pendingSnap.docs.some(d => d.data().status === "pending");
+        if (hasPending) {
+            showDynamicIsland('Ожидайте проверки...', 'info');
+            btn.innerHTML = '<i class="fas fa-hourglass-half"></i> Ожидание проверки';
+            return;
+        }
+        const amount = planAmounts[selectedPlan] || 100;
+        await addDoc(collection(db, "premiumReceipts"), {
             uid: currentUser.uid,
-            username: currentUser.displayName || currentUser.name || currentUser.username || '',
+            username: currentUser.name || currentUser.username || '',
             plan: selectedPlan,
-            amount: planPrices[selectedPlan],
-            receiptUrl: dataUrl,
-            status: "pending",
-            createdAt: new Date().toISOString()
+            amount: amount + ' ₽',
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+            method: 'qr-code'
         });
-        
-        if (msg) { msg.style.display = 'block'; msg.textContent = 'AI проверяет квитанцию...'; msg.style.color = '#6c5ce7'; }
-        showDynamicIsland('AI проверяет квитанцию...', 'info');
-        
-        // Auto AI verification
-        autoVerifyReceipt(receiptDocRef.id, dataUrl, selectedPlan);
-        
-        selectedReceiptFile = null;
-        const preview = document.getElementById('premiumReceiptPreview');
-        if (preview) preview.style.display = 'none';
-        const receiptInput = document.getElementById('premiumReceiptInput');
-        if (receiptInput) receiptInput.value = '';
-        if (activateBtn) { activateBtn.textContent = 'Отправлено ✓'; activateBtn.disabled = true; activateBtn.style.opacity = '0.5'; }
-        const uploadBtn = document.getElementById('btnUploadReceipt');
-        if (uploadBtn) { uploadBtn.textContent = '⏳ AI проверяет...'; uploadBtn.disabled = true; }
+        showDynamicIsland('Заявка на проверку отправлена', 'success');
+        btn.innerHTML = '<i class="fas fa-hourglass-half"></i> Ожидание проверки';
     } catch (e) {
-        console.error('Receipt upload error:', e);
-        if (msg) { msg.style.display = 'block'; msg.textContent = 'Ошибка загрузки: ' + (e.message || e); msg.style.color = '#ff3b30'; }
-        if (activateBtn) { activateBtn.textContent = 'Отправить на проверку'; activateBtn.disabled = false; }
+        showDynamicIsland('Ошибка', 'error');
+        btn.innerHTML = '<i class="fas fa-check-circle"></i> Проверить оплату';
+        btn.disabled = false;
     }
 });
 
@@ -3212,6 +3917,8 @@ async function autoVerifyReceipt(receiptId, receiptUrl, plan) {
             await updateDoc(doc(db, "premiumReceipts", receiptId), { status: "approved", reviewedAt: new Date().toISOString(), reviewedBy: 'ai-bot' });
             await updateDoc(doc(db, "users", currentUser.uid), { premium: true, premiumActivatedAt: new Date().toISOString(), premiumActivatedBy: 'ai-bot' });
             currentUser.premium = true;
+            const myNameDisplay = document.getElementById('myNameDisplay');
+            if (myNameDisplay) myNameDisplay.innerHTML = currentUser.name + getPremiumBadge(currentUser);
             if (msg) { msg.innerHTML = '<span style="color:#2ecc71;">Premium активирован! (AI подтвердил)</span>'; }
             showDynamicIsland('Premium активирован! AI подтвердил квитанцию.', 'success');
             const uploadBtn = document.getElementById('btnUploadReceipt');
@@ -3582,7 +4289,7 @@ function setupAutoTranslate() {
             });
         });
     });
-    const messagesContainer = document.getElementById('messagesContainer');
+    const messagesContainer = document.getElementById('messagesArea');
     if (messagesContainer) { observer.observe(messagesContainer, { childList: true, subtree: true }); window._autoTranslateObserver = observer; }
 }
 
@@ -3611,10 +4318,10 @@ document.getElementById('btnAdminPremiumSearch')?.addEventListener('click', asyn
                 div.innerHTML = `
                     <div style="flex:1;">
                         <div style="font-weight:600;font-size:14px;">${escape(u.name || u.username)}</div>
-                        <div style="font-size:12px;color:var(--text-secondary);">${escape(u.username || '')} ${isPrem ? '<span style="color:#6c5ce7;font-weight:700;">Premium</span>' : ''}</div>
+                        <div style="font-size:12px;color:var(--text-secondary);">${escape(u.username || '')} ${isPrem ? '<span style="color:#ffffff;font-weight:700;">Premium</span>' : ''}</div>
                     </div>
                     <button class="btn admin-grant-premium" data-uid="${u.uid}" data-name="${escape(u.name || u.username)}" data-action="${isPrem ? 'revoke' : 'grant'}" 
-                        style="padding:8px 14px;font-size:12px;width:auto;background:${isPrem ? '#ff3b30' : '#6c5ce7'};color:#fff;">
+                        style="padding:8px 14px;font-size:12px;width:auto;background:${isPrem ? '#ff3b30' : '#ffffff'};color:#fff;">
                         ${isPrem ? '<i class="fas fa-times"></i> Снять' : '<i class="fas fa-star"></i> Выдать'}
                     </button>
                 `;
@@ -3646,9 +4353,10 @@ document.getElementById('btnAdminPremiumSearch')?.addEventListener('click', asyn
                         });
                         showDynamicIsland(`Premium снят у ${name}`, 'info');
                     }
-                    // Refresh search results
+                    // Refresh search results and reload chats
                     document.getElementById('btnAdminPremiumSearch')?.click();
                     loadAdminPremiumList();
+                    loadChats();
                 } catch (e) {
                     showDynamicIsland('Ошибка', 'error');
                 }
@@ -3681,7 +4389,7 @@ async function loadAdminPremiumList() {
             const div = document.createElement('div');
             div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px;';
             div.innerHTML = `
-                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#6c5ce7,#a29bfe);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;flex-shrink:0;"><i class="fas fa-star"></i></div>
+                <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#ffffff,#333333);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;flex-shrink:0;"><i class="fas fa-star"></i></div>
                 <div style="flex:1;">
                     <div style="font-weight:600;font-size:14px;">${escape(u.name || u.username)}</div>
                     <div style="font-size:12px;color:var(--text-secondary);">${escape(u.username || '')} · Активирован ${activated}</div>
@@ -3827,9 +4535,302 @@ async function loadAdminReceiptsList() {
     }
 }
 
+// ========== АДМИН-ПАНЕЛЬ: ТАБЫ И СТАТИСТИКА ==========
+document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+    btn.onclick = () => {
+        document.querySelectorAll('.admin-tab-btn').forEach(b => {
+            b.style.background = 'transparent';
+            b.style.color = 'var(--text-secondary)';
+            b.classList.remove('active');
+        });
+        btn.style.background = 'var(--accent)';
+        btn.style.color = 'var(--bg)';
+        btn.classList.add('active');
+
+        document.querySelectorAll('.admin-tab-content').forEach(c => c.style.display = 'none');
+        const tab = btn.dataset.adminTab;
+        if (tab === 'users') {
+            document.getElementById('adminTabUsers').style.display = 'block';
+            loadAdminUsersList();
+        } else if (tab === 'premium') {
+            document.getElementById('adminTabPremium').style.display = 'block';
+            loadAdminPremiumList();
+        } else if (tab === 'receipts') {
+            document.getElementById('adminTabReceipts').style.display = 'block';
+            loadAdminReceiptsList();
+        }
+    };
+});
+
+async function loadAdminStats() {
+    try {
+        const usersSnap = await getDocs(collection(db, "users"));
+        document.getElementById('adminStatUsers').textContent = usersSnap.size;
+
+        const chatsSnap = await getDocs(collection(db, "chats"));
+        document.getElementById('adminStatChats').textContent = chatsSnap.size;
+
+        const msgSnap = await getDocs(collection(db, "messages"));
+        document.getElementById('adminStatMessages').textContent = msgSnap.size;
+
+        const feedSnap = await getDocs(collection(db, "feed"));
+        document.getElementById('adminStatPosts').textContent = feedSnap.size;
+    } catch (e) {
+        console.warn('Admin stats error:', e);
+    }
+}
+
+async function loadAdminUsersList() {
+    const container = document.getElementById('adminUsersList');
+    if (!container) return;
+    if (!isCreator(currentUser)) return;
+    container.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-secondary);font-size:13px;">Загрузка...</div>';
+
+    try {
+        const usersSnap = await getDocs(collection(db, "users"));
+        const feedSnap = await getDocs(collection(db, "feed"));
+        const userPostCounts = {};
+        feedSnap.forEach(d => {
+            const p = d.data();
+            if (p.authorId) userPostCounts[p.authorId] = (userPostCounts[p.authorId] || 0) + 1;
+        });
+
+        container.innerHTML = '';
+
+        usersSnap.forEach(d => {
+            const u = d.data();
+            const isPrem = u.premium === true;
+            const isOnline = u.online === true;
+            const isKail = u.username?.toLowerCase() === '@kail';
+            const isBanned = u.banned === true;
+            const postCount = userPostCounts[u.uid] || 0;
+            const div = document.createElement('div');
+            div.className = 'admin-user-item';
+            div.style.opacity = isBanned ? '0.5' : '1';
+            div.innerHTML = `
+                <div class="admin-user-avatar">${u.avatarUrl ? `<img src="${u.avatarUrl}">` : (u.name || u.username || '?')[0].toUpperCase()}</div>
+                <div class="admin-user-info">
+                    <div class="admin-user-name">${escape(u.name || 'Без имени')} ${isKail ? '<i class="fas fa-crown" style="color:#e17055;font-size:12px;"></i>' : ''} ${isBanned ? '<span style="color:#ff3b30;font-size:11px;font-weight:700;">ЗАБАНЕН</span>' : ''}</div>
+                    <div class="admin-user-username">${escape(u.username || '')} · ${postCount} постов</div>
+                    <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${isOnline ? '● В сети' : 'Не в сети'}</div>
+                    <div style="display:flex;gap:4px;margin-top:4px;">
+                        ${isPrem ? '<span class="admin-user-badge premium"><i class="fas fa-star"></i> Premium</span>' : ''}
+                        <span class="admin-user-badge ${isOnline ? 'online' : 'offline'}">${isOnline ? '● Online' : '○ Offline'}</span>
+                    </div>
+                </div>
+                <div style="display:flex;gap:4px;flex-shrink:0;">
+                    ${!isKail ? `<button class="admin-action-btn message" data-uid="${d.id}" data-name="${escape(u.name || u.username)}" title="Открыть чат"><i class="fas fa-comment"></i></button>` : ''}
+                    ${!isKail ? `<button class="admin-action-btn ${isBanned ? 'approve' : 'ban'}" data-uid="${d.id}" data-action="${isBanned ? 'unban' : 'ban'}" data-name="${escape(u.name || u.username)}" title="${isBanned ? 'Разбанить' : 'Забанить'}"><i class="fas fa-${isBanned ? 'check' : 'ban'}"></i></button>` : ''}
+                </div>
+            `;
+            container.appendChild(div);
+        });
+
+        container.querySelectorAll('.admin-action-btn.message').forEach(btn => {
+            btn.onclick = async () => {
+                const uid = btn.dataset.uid;
+                const name = btn.dataset.name;
+                try {
+                    const chatsSnap = await getDocs(query(collection(db, "chats"), where("type", "==", "private")));
+                    for (const d of chatsSnap.docs) {
+                        const chat = d.data();
+                        const memberUids = chat.memberUids || chat.members?.map(m => m.uid) || [];
+                        if (memberUids.includes(currentUser.uid) && memberUids.includes(uid)) {
+                            openChat(d.id, name, uid);
+                            return;
+                        }
+                    }
+                    showDynamicIsland(`Чат с ${name} не найден`, 'info');
+                } catch(e) {}
+            };
+        });
+
+        container.querySelectorAll('.admin-action-btn.ban, .admin-action-btn.approve').forEach(btn => {
+            btn.onclick = async () => {
+                const uid = btn.dataset.uid;
+                const name = btn.dataset.name;
+                const action = btn.dataset.action;
+                try {
+                    if (action === 'ban') {
+                        if (!confirm(`Забанить ${name}?`)) return;
+                        await updateDoc(doc(db, "users", uid), { banned: true, bannedAt: new Date().toISOString(), bannedBy: currentUser.uid });
+                        showDynamicIsland(`${name} забанен`, 'success');
+                    } else {
+                        await updateDoc(doc(db, "users", uid), { banned: false, bannedAt: null, bannedBy: null });
+                        showDynamicIsland(`${name} разбанен`, 'success');
+                    }
+                    loadAdminUsersList();
+                } catch (e) {
+                    showDynamicIsland('Ошибка', 'error');
+                }
+            };
+        });
+    } catch (e) {
+        container.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-secondary);font-size:13px;">Ошибка загрузки</div>';
+    }
+}
+
+document.getElementById('btnAdminBroadcast')?.addEventListener('click', async () => {
+    const msg = prompt('Введите сообщение для рассылки всем пользователям:');
+    if (!msg || !msg.trim()) return;
+
+    try {
+        const usersSnap = await getDocs(collection(db, "users"));
+        let sent = 0;
+        for (const d of usersSnap.docs) {
+            const u = d.data();
+            if (u.uid === currentUser.uid) continue;
+            try {
+                await addDoc(collection(db, "notifications"), {
+                    recipientId: u.uid,
+                    senderName: 'SPARK Admin',
+                    messageText: msg.trim(),
+                    chatId: null,
+                    messageType: 'broadcast',
+                    timestamp: new Date(),
+                    read: false
+                });
+                sent++;
+            } catch (e) {}
+        }
+        showDynamicIsland(`Рассылка отправлена ${sent} пользователям`, 'success');
+    } catch (e) {
+        showDynamicIsland('Ошибка рассылки', 'error');
+    }
+});
+
+document.getElementById('btnAdminExportData')?.addEventListener('click', async () => {
+    try {
+        const usersSnap = await getDocs(collection(db, "users"));
+        const users = [];
+        usersSnap.forEach(d => {
+            const u = d.data();
+            users.push({
+                uid: u.uid,
+                username: u.username,
+                name: u.name,
+                premium: u.premium || false,
+                online: u.online || false,
+                createdAt: u.createdAt || null,
+                lastSeen: u.lastSeen || null
+            });
+        });
+
+        const dataStr = JSON.stringify(users, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `spark-users-export-${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showDynamicIsland('Данные экспортированы', 'success');
+    } catch (e) {
+        showDynamicIsland('Ошибка экспорта', 'error');
+    }
+});
+
+document.getElementById('btnAdminClearCache')?.addEventListener('click', async () => {
+    if (!confirm('Вы уверены? Это действие необратимо.')) return;
+    showDynamicIsland('Кэш очищен (локально)', 'success');
+});
+
+// ========== ADMIN: GIVE STARS TO USERS ==========
+document.getElementById('btnAdminGrantStars')?.addEventListener('click', async () => {
+    if (!currentUser || !isCreator(currentUser)) return;
+    const username = prompt('Введите @username получателя:');
+    if (!username || !username.startsWith('@')) { showDynamicIsland('Введите @username', 'error'); return; }
+    const amountStr = prompt('Сколько звёзд выдать?');
+    const amount = parseInt(amountStr);
+    if (!amount || amount <= 0) { showDynamicIsland('Введите сумму', 'error'); return; }
+    try {
+        const usersSnap = await getDocs(query(collection(db, "users"), where("username", "==", username)));
+        if (usersSnap.empty) { showDynamicIsland('Пользователь не найден', 'error'); return; }
+        const targetDoc = usersSnap.docs[0];
+        await updateDoc(doc(db, "users", targetDoc.id), { stars: increment(amount) });
+        showDynamicIsland(`+${amount} ★ выдано ${username}`, 'success');
+    } catch(e) {
+        showDynamicIsland('Ошибка: ' + (e.message || e), 'error');
+    }
+});
+
+// Admin: Ban user
+document.getElementById('btnAdminBan')?.addEventListener('click', async () => {
+    if (!currentUser || !isCreator(currentUser)) return;
+    const username = document.getElementById('adminTargetUser')?.value?.trim();
+    if (!username || !username.startsWith('@')) { showDynamicIsland('Введите @username', 'error'); return; }
+    if (!confirm(`Забанить ${username}?`)) return;
+    try {
+        const usersSnap = await getDocs(query(collection(db, "users"), where("username", "==", username)));
+        if (usersSnap.empty) { showDynamicIsland('Пользователь не найден', 'error'); return; }
+        await updateDoc(doc(db, "users", usersSnap.docs[0].id), { banned: true });
+        showDynamicIsland(`${username} забанен`, 'success');
+    } catch(e) { showDynamicIsland('Ошибка', 'error'); }
+});
+
+// Admin: Give stars (from input)
+document.getElementById('btnAdminGiveStars')?.addEventListener('click', async () => {
+    if (!currentUser || !isCreator(currentUser)) return;
+    const username = document.getElementById('adminTargetUser')?.value?.trim();
+    if (!username || !username.startsWith('@')) { showDynamicIsland('Введите @username', 'error'); return; }
+    const amountStr = prompt('Сколько звёзд выдать?');
+    const amount = parseInt(amountStr);
+    if (!amount || amount <= 0) { showDynamicIsland('Введите сумму', 'error'); return; }
+    try {
+        const usersSnap = await getDocs(query(collection(db, "users"), where("username", "==", username)));
+        if (usersSnap.empty) { showDynamicIsland('Пользователь не найден', 'error'); return; }
+        await updateDoc(doc(db, "users", usersSnap.docs[0].id), { stars: increment(amount) });
+        showDynamicIsland(`+${amount} ★ выдано ${username}`, 'success');
+    } catch(e) { showDynamicIsland('Ошибка', 'error'); }
+});
+
+// Admin: Give premium
+document.getElementById('btnAdminGivePremium')?.addEventListener('click', async () => {
+    if (!currentUser || !isCreator(currentUser)) return;
+    const username = document.getElementById('adminTargetUser')?.value?.trim();
+    if (!username || !username.startsWith('@')) { showDynamicIsland('Введите @username', 'error'); return; }
+    try {
+        const usersSnap = await getDocs(query(collection(db, "users"), where("username", "==", username)));
+        if (usersSnap.empty) { showDynamicIsland('Пользователь не найден', 'error'); return; }
+        await updateDoc(doc(db, "users", usersSnap.docs[0].id), { premium: true });
+        showDynamicIsland(`Premium выдан ${username}`, 'success');
+    } catch(e) { showDynamicIsland('Ошибка', 'error'); }
+});
+
+// ========== ADMIN GIFT PRICES SAVE ==========
+document.getElementById('btnAdminSaveGiftPrices')?.addEventListener('click', async () => {
+    if (!currentUser || !isCreator(currentUser)) return;
+    const prices = {
+        bear: parseInt(document.getElementById('giftPriceBear')?.value) || 25,
+        cake: parseInt(document.getElementById('giftPriceCake')?.value) || 100,
+        giftbox: parseInt(document.getElementById('giftPriceGiftbox')?.value) || 50,
+        sparkstar: parseInt(document.getElementById('giftPriceSparkstar')?.value) || 10000,
+        heart: parseInt(document.getElementById('giftPriceHeart')?.value) || 30,
+        rose: parseInt(document.getElementById('giftPriceRose')?.value) || 40,
+        ring: parseInt(document.getElementById('giftPriceRing')?.value) || 200,
+        diamond: parseInt(document.getElementById('giftPriceDiamond')?.value) || 500,
+        bottle: parseInt(document.getElementById('giftPriceBottle')?.value) || 75,
+        icecream: parseInt(document.getElementById('giftPriceIcecream')?.value) || 15,
+        poop: parseInt(document.getElementById('giftPricePoop')?.value) || 5,
+        sparksocks: parseInt(document.getElementById('giftPriceSparksocks')?.value) || 1500,
+        sparkbackpack: parseInt(document.getElementById('giftPriceSparkbackpack')?.value) || 3000,
+        sparkfigure: parseInt(document.getElementById('giftPriceSparkfigure')?.value) || 7500
+    };
+    try {
+        await setDoc(doc(db, "settings", "gifts"), { prices }, { merge: true });
+        for (const [key, val] of Object.entries(prices)) {
+            if (giftPrices[key]) giftPrices[key].price = val;
+        }
+        renderGiftsList();
+        showDynamicIsland('Цены подарков сохранены!', 'success');
+    } catch(e) {
+        showDynamicIsland('Ошибка сохранения', 'error');
+    }
+});
+
 // ========== КАСТОМ (PREMIUM) ==========
 let customWallpaperData = null;
-const CARD_COLORS = ['#6c5ce7','#00b894','#0984e3','#e17055','#fdcb6e','#e84393','#00cec9','#d63031','#2d3436','#636e72'];
+const CARD_COLORS = ['#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff','#ffffff'];
 
 async function loadCustomSettings() {
     if (!currentUser) return;
@@ -3864,7 +4865,7 @@ async function loadCustomSettings() {
         const colorsContainer = document.getElementById('customCardColors');
         if (colorsContainer) {
             colorsContainer.innerHTML = '';
-            const currentColor = data.customCardColor || '#6c5ce7';
+            const currentColor = data.customCardColor || '#ffffff';
             CARD_COLORS.forEach(color => {
                 const sq = document.createElement('div');
                 sq.style.cssText = `width:36px;height:36px;border-radius:50%;background:${color};cursor:pointer;border:3px solid ${color === currentColor ? '#fff' : 'transparent'};transition:border-color 0.2s;`;
@@ -3927,7 +4928,7 @@ document.getElementById('btnSaveCustom')?.addEventListener('click', async () => 
     if (!currentUser) return;
     const opacity = parseInt(document.getElementById('customOpacity')?.value || '100');
     const colorsEl = document.getElementById('customCardColors');
-    const cardColor = colorsEl?.dataset?.selected || '#6c5ce7';
+    const cardColor = colorsEl?.dataset?.selected || '#ffffff';
     
     try {
         const updateData = { customOpacity: opacity, customCardColor: cardColor };
@@ -3970,12 +4971,10 @@ document.getElementById('btnSaveCustom')?.addEventListener('click', async () => 
 function applyCustomSettings() {
     if (!currentUser) return;
     const opacity = currentUser.customOpacity ?? 100;
-    const cardColor = currentUser.customCardColor;
     const wallpaper = currentUser.customWallpaper;
     
-    if (cardColor) {
-        document.documentElement.style.setProperty('--accent', cardColor);
-    }
+    document.documentElement.style.setProperty('--accent', '#ffffff');
+    document.documentElement.style.setProperty('--accent-soft', 'rgba(255,255,255,0.12)');
     document.querySelectorAll('.card, .glass-panel, .search-box, .switch-container, .footer').forEach(el => {
         el.style.opacity = opacity < 100 ? String(opacity / 100) : '';
     });
@@ -4086,6 +5085,16 @@ document.getElementById('reactionPicker')?.querySelectorAll('.reaction-emoji').f
     btn.addEventListener('mouseleave', () => { btn.style.transform = 'scale(1)'; });
 });
 
+document.querySelectorAll('.reaction-quick').forEach(btn => {
+    btn.addEventListener('mouseenter', () => { btn.style.transform = 'scale(1.3)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.transform = 'scale(1)'; });
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (editingMessageId) toggleReaction(editingMessageId, btn.dataset.reaction);
+        hideAllContextMenus();
+    });
+});
+
 document.addEventListener('click', () => {
     const picker = document.getElementById('reactionPicker');
     if (picker) picker.style.display = 'none';
@@ -4105,4 +5114,1439 @@ document.addEventListener('pointerdown', (e) => {
     document.addEventListener('pointercancel', cancel);
 });
 
-// SPARK v2.0.2
+// Swipe left on message bubble → context menu (mobile)
+(function() {
+    let touchStartX = 0, touchStartY = 0;
+    document.addEventListener('touchstart', (e) => {
+        const bubble = e.target.closest('.message-bubble');
+        if (!bubble) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', (e) => {
+        const bubble = e.target.closest('.message-bubble');
+        if (!bubble) return;
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+        if (dx < -60 && dy < 50) {
+            const msgDiv = bubble.closest('[data-msg-id]');
+            if (!msgDiv) return;
+            const msgId = msgDiv.dataset.msgId;
+            const msgData = window._editingMsgData || {};
+            editingMessageId = msgId;
+            window._editingMsgData = JSON.parse(msgDiv.dataset.msgJson || '{}');
+            const msgMenu = document.getElementById('messageContextMenu');
+            const editBtn = document.getElementById('btnMsgEdit');
+            const touch = e.changedTouches[0];
+            if (editBtn) editBtn.style.display = 'flex';
+            if (msgMenu) showContextMenu(msgMenu, touch.clientX, touch.clientY);
+        }
+    });
+})();
+
+// SPARK v2.0.5
+
+// ========== ДОБАВИТЬ ЧЕЛОВЕКА В ЗВОНОК ==========
+const btnAddToCall = document.getElementById('btnAddToCall');
+const addPersonCallModal = document.getElementById('addPersonCallModal');
+const addPersonCallSearch = document.getElementById('addPersonCallSearch');
+const addPersonCallResults = document.getElementById('addPersonCallResults');
+
+if (btnAddToCall) {
+    btnAddToCall.addEventListener('click', () => {
+        if (addPersonCallModal) addPersonCallModal.classList.add('active');
+        if (addPersonCallSearch) { addPersonCallSearch.value = ''; addPersonCallSearch.focus(); }
+    });
+}
+
+if (addPersonCallSearch) {
+    addPersonCallSearch.addEventListener('input', async (e) => {
+        const q = e.target.value.trim().toLowerCase();
+        if (!addPersonCallResults || q.length < 1) { addPersonCallResults.innerHTML = ''; return; }
+        try {
+            const usersSnap = await getDocs(query(collection(db, "users"), where("username", ">=", q), where("username", "<=", q + '\uf8ff')));
+            addPersonCallResults.innerHTML = '';
+            usersSnap.forEach(d => {
+                const u = d.data();
+                if (u.uid === currentUser?.uid) return;
+                const item = document.createElement('div');
+                item.className = 'search-item';
+                item.style.cssText = 'padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);cursor:pointer;';
+                item.innerHTML = `<div><strong style="color:var(--text);font-size:14px;">${escape(u.name || u.username)}</strong><br><small style="color:var(--text-secondary);font-size:12px;">@${escape(u.username)}</small></div>
+                    <button class="small-btn" style="font-size:11px;">Пригласить</button>`;
+                item.querySelector('.small-btn').addEventListener('click', async () => {
+                    try {
+                        if (currentCallId) {
+                            await updateDoc(doc(db, "calls", currentCallId), { targetId: u.uid, status: "calling" });
+                            showDynamicIsland(`Приглашение отправлено ${u.name || u.username}`, 'success');
+                        }
+                    } catch (err) { console.error('Invite error:', err); }
+                    addPersonCallModal.classList.remove('active');
+                });
+                addPersonCallResults.appendChild(item);
+            });
+            if (addPersonCallResults.children.length === 0) {
+                addPersonCallResults.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-secondary);font-size:13px;">Пользователь не найден</div>';
+            }
+        } catch (err) { console.warn('Search error:', err); }
+    });
+}
+
+// ========== ПРОФИЛЬ — ФОН С ИЗОБРАЖЕНИЕМ ==========
+function compressProfileBg(file, maxWidth, quality) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                        else reject(new Error('Canvas toBlob failed'));
+                    }, 'image/jpeg', quality || 0.75);
+                } catch (err) { reject(err); }
+            };
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('FileReader failed'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function enhanceImageWithCanvas(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width; canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.min(255, data[i] * 1.05);
+                        data[i + 1] = Math.min(255, data[i + 1] * 1.05);
+                        data[i + 2] = Math.min(255, data[i + 2] * 1.05);
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                        else reject(new Error('Canvas toBlob failed'));
+                    }, 'image/jpeg', 0.85);
+                } catch (err) { reject(err); }
+            };
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('FileReader failed'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function loadProfileBg(url) {
+    const img = document.getElementById('profileBgImg');
+    const placeholder = document.getElementById('profileBgPlaceholder');
+    if (img) {
+        if (url) { img.src = url; img.style.display = 'block'; }
+        else { img.style.display = 'none'; }
+    }
+    if (placeholder) placeholder.style.display = url ? 'none' : 'flex';
+    const coverImg = document.getElementById('profileCoverImg');
+    if (coverImg) {
+        if (url) { coverImg.src = url; coverImg.style.display = 'block'; }
+        else { coverImg.style.display = 'none'; }
+    }
+}
+
+function setupProfileBackground() {
+    const profileBgEdit = document.getElementById('profileBgEditBtn');
+    const profileBgInput = document.getElementById('profileBgInput');
+    if (profileBgEdit && profileBgInput) {
+        profileBgEdit.addEventListener('click', () => profileBgInput.click());
+    }
+    if (currentUser?.profileBgUrl) loadProfileBg(currentUser.profileBgUrl);
+}
+
+setTimeout(setupProfileBackground, 1500);
+
+// ========== FEED / ЛЕНТА ==========
+let feedPostMediaData = null;
+
+document.getElementById('btnCreatePost')?.addEventListener('click', () => {
+    document.getElementById('createPostModal')?.classList.add('active');
+    document.getElementById('postTextInput').value = '';
+    document.getElementById('postMediaPreview').style.display = 'none';
+    feedPostMediaData = null;
+});
+
+document.getElementById('btnCancelPost')?.addEventListener('click', () => {
+    document.getElementById('createPostModal')?.classList.remove('active');
+});
+
+document.getElementById('postAddPhoto')?.addEventListener('click', () => {
+    const input = document.getElementById('postMediaInput');
+    if (input) { input.accept = 'image/*'; input.click(); }
+});
+
+document.getElementById('postAddVideo')?.addEventListener('click', () => {
+    const input = document.getElementById('postMediaInput');
+    if (input) { input.accept = 'video/*'; input.click(); }
+});
+
+document.getElementById('postMediaInput')?.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+        let data = ev.target.result;
+        if (file.type.startsWith('image/')) {
+            try { data = await compressImage(data, 800, 800, 800000); } catch(e) {}
+        }
+        feedPostMediaData = { data, type: file.type.startsWith('video/') ? 'video' : 'image', name: file.name };
+        const preview = document.getElementById('postMediaPreview');
+        const img = document.getElementById('postMediaImg');
+        if (preview && img) {
+            if (file.type.startsWith('video/')) {
+                img.style.display = 'none';
+                let vid = preview.querySelector('video');
+                if (!vid) { vid = document.createElement('video'); vid.autoplay = true; vid.loop = true; vid.muted = true; vid.style.cssText = 'max-width:100%;max-height:200px;border-radius:12px;'; preview.insertBefore(vid, preview.firstChild); }
+                vid.src = data;
+                vid.style.display = 'block';
+            } else {
+                const vid = preview.querySelector('video');
+                if (vid) vid.remove();
+                img.src = data;
+                img.style.display = 'block';
+            }
+            preview.style.display = 'block';
+        }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+});
+
+document.getElementById('postRemoveMedia')?.addEventListener('click', () => {
+    feedPostMediaData = null;
+    document.getElementById('postMediaPreview').style.display = 'none';
+    const vid = document.getElementById('postMediaPreview')?.querySelector('video');
+    if (vid) vid.remove();
+});
+
+document.getElementById('btnPublishPost')?.addEventListener('click', async () => {
+    const text = document.getElementById('postTextInput')?.value.trim();
+    if (!text && !feedPostMediaData) { showDynamicIsland('Напишите что-нибудь', 'error'); return; }
+    if (!currentUser) return;
+    
+    showDynamicIsland('Публикация...', 'info');
+    document.getElementById('btnPublishPost').disabled = true;
+    
+    try {
+        const postData = {
+            authorId: currentUser.uid,
+            authorName: currentUser.name || currentUser.username,
+            authorAvatar: currentUser.avatarUrl || '',
+            text: text || '',
+            mediaUrl: feedPostMediaData?.data || '',
+            mediaType: feedPostMediaData?.type || '',
+            timestamp: serverTimestamp(),
+            _localTime: Date.now(),
+            reactions: {},
+            comments: [],
+            commentCount: 0,
+            likeCount: 0
+        };
+        
+        await addDoc(collection(db, "feed"), postData);
+        document.getElementById('createPostModal')?.classList.remove('active');
+        document.getElementById('postTextInput').value = '';
+        document.getElementById('postMediaPreview').style.display = 'none';
+        feedPostMediaData = null;
+        showDynamicIsland('Опубликовано!', 'success');
+        loadFeed();
+    } catch(e) {
+        console.error('Post error:', e);
+        showDynamicIsland('Ошибка публикации', 'error');
+    }
+    document.getElementById('btnPublishPost').disabled = false;
+});
+
+async function loadFeed() {
+    const container = document.getElementById('feedList');
+    if (!container || !currentUser) return;
+    
+    try {
+        const snap = await getDocs(query(collection(db, "feed")));
+        let posts = [];
+        snap.forEach(d => posts.push({ id: d.id, ...d.data() }));
+        posts = posts.filter(p => !p.repostFrom);
+        posts.sort((a, b) => {
+            const ta = a.timestamp?.toMillis?.() || a._localTime || 0;
+            const tb = b.timestamp?.toMillis?.() || b._localTime || 0;
+            return tb - ta;
+        });
+        
+        container.innerHTML = '';
+        if (posts.length === 0) {
+            container.innerHTML = '<div id="feedEmptyState" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;text-align:center;"><div style="width:80px;height:80px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;margin-bottom:20px;border:1px solid var(--border);"><i class="fas fa-star" style="font-size:32px;color:var(--text-secondary);"></i></div><p style="color:var(--text-secondary);font-size:15px;">Пока нет постов. Будьте первым!</p></div>';
+            return;
+        }
+        
+        const fragment = document.createDocumentFragment();
+        for (const post of posts) {
+            fragment.appendChild(renderFeedPost(post));
+        }
+        container.appendChild(fragment);
+    } catch(e) {
+        console.error('Feed load error:', e);
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);">Ошибка загрузки ленты</div>';
+    }
+}
+
+function renderFeedPost(post) {
+    const div = document.createElement('div');
+    div.className = 'feed-post';
+    div.dataset.postId = post.id;
+    
+    const timeStr = post.timestamp?.toDate ? post.timestamp.toDate().toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    
+    let mediaHtml = '';
+    if (post.mediaUrl) {
+        if (post.mediaType === 'video') {
+            mediaHtml = `<video src="${post.mediaUrl}" controls playsinline webkit-playsinline style="width:100%;max-height:400px;object-fit:cover;border-radius:var(--radius-md);display:block;margin-bottom:12px;"></video>`;
+        } else {
+            mediaHtml = `<img src="${post.mediaUrl}" class="feed-post-media" onclick="window.open(this.src,'_blank')">`;
+        }
+    }
+    
+    const myReaction = Object.entries(post.reactions || {}).find(([emoji, users]) => users.includes(currentUser.uid));
+    
+    let reactionsHtml = '';
+    const reactions = post.reactions || {};
+    if (Object.keys(reactions).length > 0) {
+        reactionsHtml = '<div class="feed-reactions-row">';
+        for (const [emoji, users] of Object.entries(reactions)) {
+            if (!users || users.length === 0) continue;
+            const isMine = users.includes(currentUser.uid);
+            reactionsHtml += `<span class="feed-reaction-badge${isMine ? ' mine' : ''}" data-emoji="${emoji}" onclick="toggleFeedReaction('${post.id}','${emoji}')">${emoji} <span class="feed-reaction-count">${users.length}</span></span>`;
+        }
+        reactionsHtml += '</div>';
+    }
+    
+    const authorInitial = (post.authorName || '?')[0]?.toUpperCase() || '?';
+    const avatarHtml = post.authorAvatar
+        ? `<img src="${post.authorAvatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+        : authorInitial;
+    
+    const isMyPost = post.authorId === currentUser.uid;
+    const deleteBtnHtml = isMyPost ? `<button class="feed-action-btn" onclick="deleteFeedPost('${post.id}')" style="margin-left:auto;"><i class="fas fa-trash"></i></button>` : '';
+    const repostBtnHtml = `<button class="feed-action-btn" onclick="repostFeed('${post.id}')"><i class="fas fa-share"></i></button>`;
+    const repostHeader = post.repostFrom ? `<div style="font-size:12px;color:var(--accent);font-weight:600;padding:6px 16px 0;"><i class="fas fa-share" style="margin-right:4px;font-size:10px;"></i>Репост от ${escape(post.repostFrom)}</div>` : '';
+    
+    div.innerHTML = `
+        ${repostHeader}
+        <div class="feed-post-header" onclick="openProfileFromFeed('${escape(post.authorId || '')}')" style="cursor:pointer;">
+            <div class="feed-post-avatar" id="feed-avatar-${post.id}">${avatarHtml}</div>
+            <div class="feed-post-meta">
+                <div class="feed-post-name">${escape(post.authorName || 'Неизвестно')}</div>
+                <div class="feed-post-time">${timeStr}</div>
+            </div>
+        </div>
+        ${post.text ? `<div class="feed-post-text">${escape(post.text).replace(/\n/g, '<br>')}</div>` : ''}
+        ${mediaHtml}
+        <div class="feed-post-actions">
+            <button class="feed-action-btn${myReaction ? ' active' : ''}" onclick="toggleFeedReaction('${post.id}','👍')"><i class="fas fa-thumbs-up"></i> <span>${Object.values(reactions).reduce((s, u) => s + u.length, 0) || ''}</span></button>
+            <button class="feed-action-btn" onclick="toggleFeedComments('${post.id}')"><i class="far fa-comment"></i> <span>${post.commentCount || 0}</span></button>
+            ${repostBtnHtml}
+            ${deleteBtnHtml}
+        </div>
+        ${reactionsHtml}
+        <div class="feed-comments-section" id="feed-comments-${post.id}" style="display:none;"></div>
+    `;
+    
+    return div;
+}
+
+window.deleteFeedPost = async function(postId) {
+    if (!currentUser || !confirm('Удалить пост?')) return;
+    try {
+        await deleteDoc(doc(db, "feed", postId));
+        showDynamicIsland('Пост удалён', 'success');
+        loadFeed();
+        loadProfilePosts();
+    } catch(e) {
+        showDynamicIsland('Ошибка удаления', 'error');
+    }
+};
+
+window.openProfileFromFeed = async function(uid) {
+    if (!uid) return;
+    try {
+        const userDoc = await getDoc(doc(db, "users", uid));
+        if (userDoc.exists()) {
+            openProfileModal(uid);
+        }
+    } catch(e) {}
+};
+
+window.repostFeed = async function(postId) {
+    if (!currentUser || !postId) return;
+    try {
+        const postDoc = await getDoc(doc(db, "feed", postId));
+        if (!postDoc.exists()) return;
+        const orig = postDoc.data();
+        const repostData = {
+            authorId: currentUser.uid,
+            authorName: currentUser.name || currentUser.username,
+            authorAvatar: currentUser.avatarUrl || '',
+            text: orig.text || '',
+            mediaUrl: orig.mediaUrl || '',
+            mediaType: orig.mediaType || '',
+            timestamp: serverTimestamp(),
+            _localTime: Date.now(),
+            reactions: {},
+            comments: [],
+            commentCount: 0,
+            likeCount: 0,
+            repostFrom: orig.authorName || 'Неизвестно'
+        };
+        await addDoc(collection(db, "feed"), repostData);
+        showDynamicIsland('Репост создан!', 'success');
+        loadFeed();
+    } catch(e) {
+        showDynamicIsland('Ошибка репоста', 'error');
+    }
+};
+
+window.toggleFeedReaction = async function(postId, emoji) {
+    if (!currentUser || !postId) return;
+    const postRef = doc(db, "feed", postId);
+    const postDoc = await getDoc(postRef);
+    if (!postDoc.exists()) return;
+    const data = postDoc.data();
+    const reactions = data.reactions || {};
+    
+    let myPrev = null;
+    for (const [em, users] of Object.entries(reactions)) {
+        const idx = users.indexOf(currentUser.uid);
+        if (idx > -1) { myPrev = em; reactions[em] = users.filter(u => u !== currentUser.uid); if (reactions[em].length === 0) delete reactions[em]; break; }
+    }
+    
+    if (myPrev !== emoji) {
+        reactions[emoji] = [...(reactions[emoji] || []), currentUser.uid];
+    }
+    
+    await updateDoc(postRef, { reactions });
+    loadFeed();
+};
+
+window.toggleFeedComments = function(postId) {
+    const section = document.getElementById(`feed-comments-${postId}`);
+    if (!section) return;
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        loadFeedComments(postId);
+    } else {
+        section.style.display = 'none';
+    }
+};
+
+async function loadFeedComments(postId) {
+    const section = document.getElementById(`feed-comments-${postId}`);
+    if (!section) return;
+    
+    try {
+        const postDoc = await getDoc(doc(db, "feed", postId));
+        if (!postDoc.exists()) return;
+        const postData = postDoc.data();
+        const comments = postData.comments || [];
+        
+        section.innerHTML = '';
+        
+        for (const comment of comments) {
+            const cDiv = document.createElement('div');
+            cDiv.className = 'feed-comment';
+            const cAvHtml = comment.authorAvatar
+                ? `<img src="${comment.authorAvatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+                : (comment.authorName || '?')[0]?.toUpperCase() || '?';
+            cDiv.innerHTML = `
+                <div class="feed-comment-avatar">${cAvHtml}</div>
+                <div class="feed-comment-body">
+                    <div class="feed-comment-name">${escape(comment.authorName || 'Неизвестно')}</div>
+                    <div class="feed-comment-text">${escape(comment.text)}</div>
+                    <div class="feed-comment-time">${comment.time || ''}</div>
+                </div>
+            `;
+            section.appendChild(cDiv);
+        }
+        
+        const inputDiv = document.createElement('div');
+        inputDiv.className = 'feed-comment-input';
+        inputDiv.innerHTML = `<input type="text" placeholder="Комментарий..." id="feedCommentInput-${postId}" onkeydown="if(event.key==='Enter')sendFeedComment('${postId}')"><button onclick="sendFeedComment('${postId}')"><i class="fas fa-paper-plane"></i></button>`;
+        section.appendChild(inputDiv);
+
+        const input = document.getElementById(`feedCommentInput-${postId}`);
+        if (input) input.focus();
+    } catch(e) {
+        console.error('Load comments error:', e);
+    }
+}
+
+window.sendFeedComment = async function(postId) {
+    const input = document.getElementById(`feedCommentInput-${postId}`);
+    if (!input || !currentUser) return;
+    const text = input.value.trim();
+    if (!text) return;
+
+    try {
+        const postRef = doc(db, "feed", postId);
+        const postDoc = await getDoc(postRef);
+        if (!postDoc.exists()) return;
+
+        const comments = postDoc.data().comments || [];
+        comments.push({
+            authorId: currentUser.uid,
+            authorName: currentUser.name || currentUser.username,
+            authorAvatar: currentUser.avatarUrl || '',
+            text,
+            time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+        });
+
+        await updateDoc(postRef, { comments, commentCount: comments.length });
+        input.value = '';
+        await loadFeedComments(postId);
+        showDynamicIsland('Комментарий добавлен', 'success');
+    } catch(e) {
+        console.error('Comment error:', e);
+    }
+};
+
+// ========== STARS SYSTEM ==========
+let userStars = 0;
+let clickerPendingStars = 0;
+let clickerTotalTaps = 0;
+
+async function loadUserStars() {
+    if (!currentUser) return;
+    try {
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (userDoc.exists()) {
+            userStars = userDoc.data().stars || 0;
+            clickerPendingStars = userDoc.data().clickerPendingStars || 0;
+            clickerTotalTaps = userDoc.data().clickerTotalTaps || 0;
+            localStorage.setItem('spark-stars-' + currentUser.uid, userStars);
+            updateStarsUI();
+        }
+    } catch(e) {
+        const saved = localStorage.getItem('spark-stars-' + currentUser.uid);
+        if (saved !== null) { userStars = parseInt(saved) || 0; updateStarsUI(); }
+    }
+}
+
+function updateStarsUI() {
+    const roundedStars = Math.round(userStars);
+    const profileStars = document.getElementById('profileStarsCount');
+    if (profileStars) profileStars.textContent = roundedStars;
+    const walletCount = document.getElementById('walletStarsCount');
+    if (walletCount) walletCount.textContent = roundedStars;
+    const premiumBalance = document.getElementById('premiumBalanceDisplay');
+    if (premiumBalance) premiumBalance.textContent = roundedStars + ' ★';
+    const clickerDisplay = document.getElementById('clickerStarsDisplay');
+    if (clickerDisplay) clickerDisplay.textContent = (typeof clickerPendingStars === 'number' ? clickerPendingStars.toFixed(2) : clickerPendingStars) + ' ★';
+    const clickerTotal = document.getElementById('clickerTotalTaps');
+    if (clickerTotal) clickerTotal.textContent = 'Всего тапов: ' + clickerTotalTaps;
+}
+
+updateStarsUI();
+
+window.transferStars = async function() {
+    if (!currentUser) return;
+    const usernameInput = document.getElementById('transferStarsUser');
+    const amountInput = document.getElementById('transferStarsAmount');
+    const targetUsername = usernameInput?.value.trim();
+    const amount = parseInt(amountInput?.value);
+    if (!targetUsername || !targetUsername.startsWith('@')) { showDynamicIsland('Введите @username', 'error'); return; }
+    if (!amount || amount <= 0) { showDynamicIsland('Введите сумму', 'error'); return; }
+    if (amount > userStars) { showDynamicIsland('Недостаточно звёзд', 'error'); return; }
+    try {
+        const usersSnap = await getDocs(query(collection(db, "users"), where("username", "==", targetUsername)));
+        if (usersSnap.empty) { showDynamicIsland('Пользователь не найден', 'error'); return; }
+        const targetDoc = usersSnap.docs[0];
+        const targetUid = targetDoc.id;
+        if (targetUid === currentUser.uid) { showDynamicIsland('Нельзя переводить себе', 'error'); return; }
+        await updateDoc(doc(db, "users", currentUser.uid), { stars: increment(-amount) });
+        await updateDoc(doc(db, "users", targetUid), { stars: increment(amount) });
+        await addDoc(collection(db, "starTransfers"), {
+            fromUid: currentUser.uid,
+            fromUsername: currentUser.username,
+            toUid: targetUid,
+            toUsername: targetUsername,
+            amount: amount,
+            timestamp: serverTimestamp()
+        });
+        userStars -= amount;
+        updateStarsUI();
+        usernameInput.value = '';
+        amountInput.value = '';
+        showDynamicIsland(`${amount} ★ отправлено ${targetUsername}`, 'success');
+        loadWalletHistory();
+    } catch(e) {
+        if (e.code === 'resource-exhausted') {
+            userStars -= amount;
+            updateStarsUI();
+            usernameInput.value = '';
+            amountInput.value = '';
+            showDynamicIsland(`${amount} ★ отправлено (офлайн)`, 'success');
+            localStorage.setItem('spark-stars-' + currentUser.uid, userStars);
+        } else {
+            showDynamicIsland('Ошибка: ' + (e.message || e), 'error');
+        }
+    }
+};
+
+window.resetStars = async function() {
+    if (!currentUser) return;
+    if (!confirm('Обнулить баланс? Все звёзды будут удалены.')) return;
+    try {
+        await updateDoc(doc(db, "users", currentUser.uid), { stars: 0 });
+        userStars = 0;
+        updateStarsUI();
+        showDynamicIsland('Баланс обнулён', 'success');
+    } catch(e) {
+        if (e.code === 'resource-exhausted') {
+            userStars = 0;
+            updateStarsUI();
+            showDynamicIsland('Баланс обнулён (офлайн)', 'success');
+            localStorage.setItem('spark-stars-' + currentUser.uid, 0);
+        } else {
+            showDynamicIsland('Ошибка: ' + (e.message || e), 'error');
+        }
+    }
+};
+
+// ========== WALLET PANEL ==========
+document.getElementById('closeWalletPanelBtn')?.addEventListener('click', () => closePanel('wallet'));
+
+async function loadWalletHistory() {
+    const container = document.getElementById('walletHistory');
+    if (!container || !currentUser) return;
+    try {
+        const sentSnap = await getDocs(query(collection(db, "starTransfers"), where("fromUid", "==", currentUser.uid)));
+        const receivedSnap = await getDocs(query(collection(db, "starTransfers"), where("toUid", "==", currentUser.uid)));
+        let history = [];
+        sentSnap.forEach(d => {
+            const t = d.data();
+            history.push({ type: 'sent', amount: t.amount, user: t.toUsername, time: t.timestamp?.toDate?.() || new Date() });
+        });
+        receivedSnap.forEach(d => {
+            const t = d.data();
+            history.push({ type: 'received', amount: t.amount, user: t.fromUsername, time: t.timestamp?.toDate?.() || new Date() });
+        });
+        history.sort((a, b) => b.time - a.time);
+        if (history.length === 0) {
+            container.innerHTML = '<div style="width:266px;text-align:center;padding:14px 0;color:var(--text-secondary);font-size:13px;">Нет операций</div>';
+            return;
+        }
+        container.innerHTML = history.slice(0, 20).map(h => {
+            const color = h.type === 'sent' ? '#ff3b30' : '#2ecc71';
+            const prefix = h.type === 'sent' ? '-' : '+';
+            const arrow = h.type === 'sent' ? '→' : '←';
+            const timeStr = h.time.toLocaleDateString('ru-RU') + ' ' + h.time.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            return `<div style="width:266px;height:48px;border-radius:16px;background:rgba(255,255,255,0.35);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);display:flex;align-items:center;padding:0 14px;gap:10px;box-sizing:border-box;">
+                <span style="font-size:15px;font-weight:700;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${arrow} ${escape(h.user)}</span>
+                <span style="font-size:14px;font-weight:800;color:${color};white-space:nowrap;">${prefix}${h.amount} ★</span>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        container.innerHTML = '<div style="width:266px;text-align:center;padding:14px 0;color:var(--text-secondary);font-size:13px;">Ошибка загрузки</div>';
+    }
+}
+
+// Auto-load wallet history when wallet panel opens
+document.getElementById('closeWalletPanelBtn')?.addEventListener('click', () => closePanel('wallet'));
+
+// ========== GIFT SYSTEM ==========
+const GIFT_PRICES_DEFAULT = {
+    bear: { emoji: '🧸', icon: 'fa-paw', name: 'Мишка', price: 25 },
+    cake: { emoji: '🎂', icon: 'fa-birthday-cake', name: 'Торт', price: 100 },
+    giftbox: { emoji: '🎁', icon: 'fa-gift', name: 'Коробка подарок', price: 50 },
+    sparkstar: { emoji: '⭐', icon: 'fa-star', name: 'Звезда Спарк', price: 10000 },
+    heart: { emoji: '❤️', icon: 'fa-heart', name: 'Сердечко', price: 30 },
+    rose: { emoji: '🌹', icon: 'fa-seedling', name: 'Роза', price: 40 },
+    ring: { emoji: '💍', icon: 'fa-ring', name: 'Кольцо', price: 200 },
+    diamond: { emoji: '💎', icon: 'fa-gem', name: 'Алмаз', price: 500 },
+    bottle: { emoji: '🍾', icon: 'fa-wine-bottle', name: 'Бутылка', price: 75 },
+    icecream: { emoji: '🍦', icon: 'fa-ice-cream', name: 'Мороженое', price: 15 },
+    poop: { emoji: '💩', icon: 'fa-poo', name: 'Говно', price: 5 },
+    sparksocks: { emoji: '🧦', icon: 'fa-socks', name: 'Носки Спарк', price: 1500, animated: true, sparkIcon: true },
+    sparkbackpack: { emoji: '🎒', icon: 'fa-hard-hat', name: 'Рюкзак Спарк', price: 3000, animated: true, sparkIcon: true },
+    sparkfigure: { emoji: '🤝', icon: 'fa-user-tie', name: 'Фигурка Спарк', price: 7500, animated: true, sparkIcon: true, auction: true }
+};
+
+let giftPrices = { ...GIFT_PRICES_DEFAULT };
+
+async function loadGiftPrices() {
+    try {
+        const settingsDoc = await getDoc(doc(db, "settings", "gifts"));
+        if (settingsDoc.exists()) {
+            const data = settingsDoc.data();
+            if (data.prices) {
+                for (const [key, val] of Object.entries(data.prices)) {
+                    if (giftPrices[key]) giftPrices[key].price = val;
+                }
+            }
+        }
+    } catch(e) {}
+}
+
+function renderGiftsList() {
+    const container = document.getElementById('giftsList');
+    if (!container) return;
+    container.innerHTML = '';
+
+    for (const [key, gift] of Object.entries(giftPrices)) {
+        const div = document.createElement('div');
+        div.style.cssText = 'background:rgba(255,255,255,0.35);border:1px solid rgba(255,255,255,0.4);border-radius:16px;padding:12px;text-align:center;cursor:pointer;transition:transform 0.15s;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);';
+        div.innerHTML = `<div style="font-weight:600;font-size:14px;color:var(--text);">${gift.name}</div>`;
+        div.onclick = () => openGiftSendModal(key, gift);
+        div.onmouseenter = () => div.style.transform = 'scale(1.03)';
+        div.onmouseleave = () => div.style.transform = 'scale(1)';
+        container.appendChild(div);
+    }
+}
+
+document.getElementById('closeGiftsPanelBtn')?.addEventListener('click', () => closePanel('gifts'));
+
+let selectedGiftKey = null;
+async function openGiftSendModal(key, gift) {
+    selectedGiftKey = key;
+    document.getElementById('giftSendTitle').textContent = 'Отправить подарок/премиум';
+    document.getElementById('giftSendPreview').innerHTML = `<div class="glass-panel" style="padding:6px 18px;display:inline-block;font-size:14px;font-weight:600;color:var(--text);">${gift.price} звезд</div>`;
+    const list = document.getElementById('giftRecipientList');
+    list.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-secondary);">Загрузка...</div>';
+    document.getElementById('giftSendModal').classList.add('active');
+    try {
+        const chatsSnap = await getDocs(collection(db, "chats"));
+        list.innerHTML = '';
+        const added = new Set();
+
+        const selfDiv = document.createElement('div');
+        selfDiv.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:16px;cursor:pointer;transition:background 0.15s;background:rgba(255,255,255,0.35);border:1px solid rgba(255,255,255,0.4);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);margin-bottom:8px;';
+        selfDiv.innerHTML = `<div style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px;flex-shrink:0;">${(currentUser.name || '?')[0].toUpperCase()}</div><div style="flex:1;font-weight:600;font-size:15px;color:var(--text);">Себе</div>`;
+        selfDiv.onclick = () => sendGift(currentUser.uid, currentUser.name || currentUser.username, key, gift);
+        list.appendChild(selfDiv);
+        chatsSnap.forEach(d => {
+            const chat = d.data();
+            if (chat.type !== 'private') return;
+            const members = chat.members || [];
+            const other = members.find(m => m.uid !== currentUser.uid);
+            if (other && !added.has(other.uid)) {
+                added.add(other.uid);
+                const div = document.createElement('div');
+                div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:16px;cursor:pointer;transition:background 0.15s;background:rgba(255,255,255,0.35);border:1px solid rgba(255,255,255,0.4);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);margin-bottom:8px;';
+                div.innerHTML = `<div style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px;flex-shrink:0;">${(other.name || '?')[0].toUpperCase()}</div><div style="flex:1;font-weight:600;font-size:15px;color:var(--text);">${escape(other.name || other.username || '?')}</div>`;
+                div.onclick = () => sendGift(other.uid, other.name || other.username, key, gift);
+                list.appendChild(div);
+            }
+        });
+        if (list.children.length === 0) list.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-secondary);">Нет чатов</div>';
+    } catch(e) {
+        list.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-secondary);">Ошибка</div>';
+    }
+}
+
+async function sendGift(recipientId, recipientName, giftKey, gift) {
+    if (!currentUser) return;
+    if (userStars < gift.price) {
+        showDynamicIsland('Недостаточно звёзд', 'error');
+        document.getElementById('giftSendModal').classList.remove('active');
+        return;
+    }
+    try {
+        await updateDoc(doc(db, "users", currentUser.uid), { stars: increment(-gift.price) });
+        userStars -= gift.price;
+        updateStarsUI();
+        
+        let chatId = null;
+        const chatSnap = await getDocs(query(collection(db, "chats"), where("type", "==", "private")));
+        chatSnap.forEach(d => {
+            const members = d.data().members || [];
+            const uids = members.map(m => m.uid);
+            if (uids.includes(currentUser.uid) && uids.includes(recipientId) && !chatId) chatId = d.id;
+        });
+        
+        if (!chatId) {
+            const userDoc = await getDoc(doc(db, "users", recipientId));
+            const userData = userDoc.exists() ? userDoc.data() : {};
+            const ref = await addDoc(collection(db, "chats"), {
+                name: userData.name || recipientName, type: "private",
+                members: [{ uid: currentUser.uid, name: currentUser.name, username: currentUser.username }, { uid: recipientId, name: userData.name || recipientName, username: userData.username }],
+                memberUids: [currentUser.uid, recipientId],
+                createdAt: serverTimestamp(), lastMessage: "", lastMessageTime: null
+            });
+            chatId = ref.id;
+        }
+        
+        await addDoc(collection(db, "messages"), {
+            chatId, type: 'gift', giftKey, giftEmoji: gift.emoji, giftName: gift.name,
+            senderId: currentUser.uid, senderName: currentUser.name,
+            sparkIcon: gift.sparkIcon || false,
+            animated: gift.animated || false,
+            timestamp: serverTimestamp(), _localTime: Date.now()
+        });
+        await updateDoc(doc(db, "chats", chatId), { lastMessage: `🎁 ${gift.name}`, lastMessageTime: serverTimestamp() });
+        
+        document.getElementById('giftSendModal').classList.remove('active');
+        showDynamicIsland(`${gift.emoji} ${gift.name} отправлен!`, 'success');
+        
+        setTimeout(() => {
+            const displayName = recipientName || 'Чат';
+            openChat(chatId, displayName, recipientId);
+        }, 2000);
+    } catch(e) {
+        console.error('sendGift error:', e);
+        showDynamicIsland('Ошибка: ' + (e.message || e), 'error');
+    }
+}
+
+// ========== CLICKER / ТАПАЛКА ==========
+document.getElementById('closeClickerPanelBtn')?.addEventListener('click', () => closePanel('clicker'));
+
+const clickerTapArea = document.getElementById('clickerTapArea');
+if (clickerTapArea) {
+    const doTap = (e) => {
+        e.preventDefault();
+        if (!currentUser) return;
+        if (clickerPendingStars >= 10000000) { showDynamicIsland('Лимит накопления: 10 000 000 ★', 'error'); return; }
+        clickerPendingStars += 0.05;
+        clickerTotalTaps++;
+        updateStarsUI();
+        clickerTapArea.style.transform = 'scale(0.92)';
+        setTimeout(() => { clickerTapArea.style.transform = 'scale(1)'; }, 100);
+    };
+    clickerTapArea.addEventListener('click', doTap);
+    clickerTapArea.addEventListener('touchstart', doTap, { passive: false });
+}
+
+document.getElementById('clickerCollectBtn')?.addEventListener('click', async () => {
+    if (!currentUser) return;
+    if (clickerPendingStars <= 0) { showDynamicIsland('Нет звёзд для сбора', 'error'); return; }
+    try {
+        const amountToAdd = Math.round(clickerPendingStars * 100) / 100;
+        if (amountToAdd <= 0) { showDynamicIsland('Нет звёзд для сбора', 'error'); return; }
+        await updateDoc(doc(db, "users", currentUser.uid), {
+            stars: increment(amountToAdd),
+            clickerPendingStars: 0,
+            clickerTotalTaps: clickerTotalTaps
+        });
+        userStars += amountToAdd;
+        clickerPendingStars = 0;
+        updateStarsUI();
+        showDynamicIsland(`+${amountToAdd} ★`, 'success');
+    } catch(e) {
+        if (e.code === 'resource-exhausted') {
+            const amountToAdd = Math.round(clickerPendingStars * 100) / 100;
+            userStars += amountToAdd;
+            clickerPendingStars = 0;
+            updateStarsUI();
+            localStorage.setItem('spark-stars-' + currentUser.uid, userStars);
+            showDynamicIsland(`+${amountToAdd} ★ (офлайн)`, 'success');
+        } else {
+            showDynamicIsland('Ошибка: ' + (e.message || e), 'error');
+        }
+    }
+});
+
+// ========== PREMIUM WITH STARS ==========
+document.getElementById('btnBuyPremiumStars')?.addEventListener('click', async () => {
+    if (!currentUser) return;
+    const prices = { month: 100, year: 500, forever: 1000 };
+    const cost = prices[selectedPlan] || 100;
+    if (userStars < cost) {
+        showDynamicIsland('Недостаточно звёзд. Нужно: ' + cost + ' ★', 'error');
+        return;
+    }
+    try {
+        await updateDoc(doc(db, "users", currentUser.uid), {
+            stars: increment(-cost),
+            premium: true,
+            premiumActivatedAt: new Date().toISOString(),
+            premiumActivatedBy: 'stars',
+            premiumPlan: selectedPlan
+        });
+        userStars -= cost;
+        currentUser.premium = true;
+        updateStarsUI();
+        loadPremiumStatus();
+        const myNameDisplay = document.getElementById('myNameDisplay');
+        if (myNameDisplay) myNameDisplay.innerHTML = currentUser.name + getPremiumBadge(currentUser);
+        showDynamicIsland('Premium активирован!', 'success');
+    } catch(e) {
+        showDynamicIsland('Ошибка', 'error');
+    }
+});
+
+// ========== GIFT PREMIUM ==========
+const GIFT_PREMIUM_PRICE = 500;
+
+window.giftPremiumToSomeone = async function() {
+    if (!currentUser) return;
+    if (userStars < GIFT_PREMIUM_PRICE) {
+        showDynamicIsland('Недостаточно звёзд. Нужно: ' + GIFT_PREMIUM_PRICE + ' ★', 'error');
+        return;
+    }
+    const list = document.getElementById('giftRecipientList');
+    const title = document.getElementById('giftSendTitle');
+    const preview = document.getElementById('giftSendPreview');
+    if (title) title.textContent = 'Подарить Premium';
+    if (preview) preview.innerHTML = `<div class="glass-panel" style="padding:6px 18px;display:inline-block;font-size:14px;font-weight:600;color:var(--text);">${GIFT_PREMIUM_PRICE} звезд</div>`;
+    list.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-secondary);">Загрузка...</div>';
+    document.getElementById('giftSendModal').classList.add('active');
+    try {
+        const chatsSnap = await getDocs(collection(db, "chats"));
+        list.innerHTML = '';
+        const added = new Set();
+        chatsSnap.forEach(d => {
+            const chat = d.data();
+            if (chat.type !== 'private') return;
+            const members = chat.members || [];
+            const other = members.find(m => m.uid !== currentUser.uid);
+            if (other && !added.has(other.uid)) {
+                added.add(other.uid);
+                const div = document.createElement('div');
+                div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;cursor:pointer;transition:background 0.15s;';
+                div.innerHTML = `<div style="width:36px;height:36px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;">${(other.name || '?')[0].toUpperCase()}</div><div style="flex:1;font-weight:600;font-size:14px;">${escape(other.name || other.username || '?')}</div>`;
+                div.onmouseenter = () => div.style.background = 'rgba(255,255,255,0.06)';
+                div.onmouseleave = () => div.style.background = 'transparent';
+                div.onclick = () => sendGiftPremium(other.uid, other.name || other.username);
+                list.appendChild(div);
+            }
+        });
+        if (list.children.length === 0) list.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-secondary);">Нет чатов</div>';
+    } catch(e) {
+        list.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-secondary);">Ошибка</div>';
+    }
+};
+
+async function sendGiftPremium(recipientId, recipientName) {
+    if (!currentUser) return;
+    if (userStars < GIFT_PREMIUM_PRICE) {
+        showDynamicIsland('Недостаточно звёзд', 'error');
+        document.getElementById('giftSendModal').classList.remove('active');
+        return;
+    }
+    try {
+        await updateDoc(doc(db, "users", currentUser.uid), { stars: increment(-GIFT_PREMIUM_PRICE) });
+        await updateDoc(doc(db, "users", recipientId), {
+            premium: true,
+            premiumActivatedAt: new Date().toISOString(),
+            premiumActivatedBy: currentUser.uid
+        });
+        userStars -= GIFT_PREMIUM_PRICE;
+        updateStarsUI();
+        const chatSnap = await getDocs(query(collection(db, "chats"), where("type", "==", "private")));
+        let chatId = null;
+        chatSnap.forEach(d => {
+            const members = d.data().members || [];
+            const uids = members.map(m => m.uid);
+            if (uids.includes(currentUser.uid) && uids.includes(recipientId)) chatId = d.id;
+        });
+        if (chatId) {
+            await addDoc(collection(db, "messages"), {
+                chatId, type: 'gift', giftKey: 'premium', giftEmoji: '👑', giftName: 'Premium',
+                senderId: currentUser.uid, senderName: currentUser.name,
+                timestamp: serverTimestamp(), _localTime: Date.now()
+            });
+            await updateDoc(doc(db, "chats", chatId), { lastMessage: '👑 Premium', lastMessageTime: serverTimestamp() });
+        }
+        document.getElementById('giftSendModal').classList.remove('active');
+        showDynamicIsland(`👑 Premium подарен ${recipientName}!`, 'success');
+    } catch(e) {
+        showDynamicIsland('Ошибка', 'error');
+    }
+}
+
+// ========== GIFT MESSAGE RENDERING ==========
+const GIFT_SVG = {
+    bear: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" fill="#1a1a1a"/><ellipse cx="60" cy="72" rx="30" ry="28" fill="#8B6914"/><ellipse cx="60" cy="68" rx="26" ry="24" fill="#A0781A"/><circle cx="48" cy="60" r="4" fill="#1a1a1a"/><circle cx="72" cy="60" r="4" fill="#1a1a1a"/><ellipse cx="60" cy="68" rx="8" ry="5" fill="#6B4E0A"/><circle cx="60" cy="66" r="2.5" fill="#1a1a1a"/><circle cx="36" cy="40" r="12" fill="#A0781A"/><circle cx="84" cy="40" r="12" fill="#A0781A"/><circle cx="36" cy="40" r="6" fill="#8B6914"/><circle cx="84" cy="40" r="6" fill="#8B6914"/><path d="M52 78 Q60 84 68 78" stroke="#1a1a1a" stroke-width="2" fill="none" stroke-linecap="round"/><ellipse cx="48" cy="95" rx="8" ry="6" fill="#8B6914"/><ellipse cx="72" cy="95" rx="8" ry="6" fill="#8B6914"/></svg>`,
+    cake: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" fill="#1a1a1a"/><rect x="28" y="52" width="64" height="42" rx="6" fill="#2a1a0a"/><rect x="28" y="52" width="64" height="14" rx="6" fill="#3d2b1a"/><rect x="36" y="38" width="48" height="18" rx="5" fill="#2a1a0a"/><rect x="42" y="28" width="36" height="14" rx="4" fill="#3d2b1a"/><rect x="56" y="14" width="8" height="16" rx="3" fill="#C49A1A"/><circle cx="60" cy="12" r="4" fill="#FF4500" opacity="0.9"/><circle cx="60" cy="12" r="2" fill="#FFD700" opacity="0.6"/><path d="M32 58 Q36 52 40 58" stroke="#4a3520" stroke-width="1.5" fill="none"/><path d="M50 58 Q54 52 58 58" stroke="#4a3520" stroke-width="1.5" fill="none"/><path d="M70 58 Q74 52 78 58" stroke="#4a3520" stroke-width="1.5" fill="none"/></svg>`,
+    giftbox: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" fill="#1a1a1a"/><rect x="28" y="52" width="64" height="48" rx="4" fill="#1a1a2e"/><rect x="28" y="46" width="64" height="12" rx="4" fill="#252540"/><rect x="56" y="46" width="8" height="54" fill="#C0C0C0" opacity="0.3"/><path d="M42 46 Q56 24 60 46" stroke="#C0C0C0" stroke-width="3" fill="none" opacity="0.5"/><path d="M78 46 Q64 24 60 46" stroke="#C0C0C0" stroke-width="3" fill="none" opacity="0.5"/></svg>`,
+    sparkstar: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#C49A1A"/><stop offset="50%" style="stop-color:#FFD700"/><stop offset="100%" style="stop-color:#C49A1A"/></linearGradient></defs><rect width="120" height="120" fill="#1a1a1a"/><polygon points="60,12 70,44 104,44 76,64 86,96 60,76 34,96 44,64 16,44 50,44" fill="url(#sg)" stroke="#8B6914" stroke-width="1"/><polygon points="60,12 70,44 104,44 76,64 86,96 60,76 34,96 44,64 16,44 50,44" fill="none" stroke="#FFD700" stroke-width="0.5" opacity="0.4"/><circle cx="60" cy="52" r="10" fill="#FFD700" opacity="0.15"/></svg>`,
+    heart: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" fill="#1a1a1a"/><defs><linearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#FF2D2D"/><stop offset="100%" style="stop-color:#CC0000"/></linearGradient></defs><path d="M60 96 C24 68 12 48 28 34 Q44 20 60 38 Q76 20 92 34 C108 48 96 68 60 96Z" fill="url(#hg)"/><ellipse cx="42" cy="42" rx="10" ry="6" fill="#FF6666" opacity="0.3" transform="rotate(-30,42,42)"/></svg>`,
+    rose: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" fill="#1a1a1a"/><line x1="60" y1="56" x2="60" y2="108" stroke="#1a4a1a" stroke-width="3"/><path d="M60 78 Q44 70 48 82" stroke="#1a4a1a" stroke-width="1.5" fill="#1a3a1a"/><ellipse cx="60" cy="42" rx="18" ry="16" fill="#8B0000"/><ellipse cx="50" cy="40" rx="12" ry="10" fill="#A00000"/><ellipse cx="70" cy="40" rx="12" ry="10" fill="#700000"/><ellipse cx="60" cy="36" rx="8" ry="6" fill="#B00000"/><circle cx="60" cy="36" r="4" fill="#500000"/></svg>`,
+    ring: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" fill="#1a1a1a"/><ellipse cx="60" cy="68" rx="26" ry="22" fill="none" stroke="#C49A1A" stroke-width="5"/><ellipse cx="60" cy="68" rx="20" ry="17" fill="none" stroke="#DAA520" stroke-width="1.5" opacity="0.4"/><rect x="48" y="38" width="24" height="14" rx="3" fill="#E8E8E0"/><polygon points="60,34 52,44 68,44" fill="#F0F0F0"/><polygon points="60,34 56,40 64,40" fill="#fff" opacity="0.5"/></svg>`,
+    diamond: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" fill="#1a1a1a"/><defs><linearGradient id="dg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#87CEEB"/><stop offset="50%" style="stop-color:#4FC3F7"/><stop offset="100%" style="stop-color:#29B6F6"/></linearGradient></defs><polygon points="60,18 88,44 60,102 32,44" fill="url(#dg)"/><polygon points="60,18 48,44 60,102" fill="#81D4FA" opacity="0.3"/><polygon points="60,18 72,44 60,102" fill="#29B6F6" opacity="0.25"/><line x1="32" y1="44" x2="88" y2="44" stroke="#fff" stroke-width="0.8" opacity="0.3"/></svg>`,
+    bottle: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" fill="#1a1a1a"/><rect x="50" y="12" width="20" height="18" rx="4" fill="#333"/><rect x="52" y="10" width="16" height="5" rx="2.5" fill="#444"/><path d="M48 30 Q48 50 36 58 L36 98 Q36 102 40 102 L80 102 Q84 102 84 98 L84 58 Q72 50 72 30Z" fill="#111" stroke="#222" stroke-width="1"/><ellipse cx="60" cy="72" rx="16" ry="12" fill="#0a0a0a" opacity="0.5"/><ellipse cx="60" cy="48" rx="6" ry="4" fill="#C49A1A" opacity="0.3"/></svg>`,
+    icecream: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" fill="#1a1a1a"/><polygon points="60,108 38,56 82,56" fill="#B8860B"/><line x1="48" y1="64" x2="54" y2="96" stroke="#8B6914" stroke-width="0.8" opacity="0.3"/><line x1="72" y1="64" x2="66" y2="96" stroke="#8B6914" stroke-width="0.8" opacity="0.3"/><circle cx="60" cy="42" r="18" fill="#FFF5EE"/><circle cx="46" cy="38" r="12" fill="#FFE4E1"/><circle cx="74" cy="38" r="12" fill="#FFF0F5"/><circle cx="60" cy="32" r="8" fill="#FFB6C1" opacity="0.5"/></svg>`,
+    poop: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" fill="#1a1a1a"/><ellipse cx="60" cy="82" rx="32" ry="14" fill="#3E2723"/><ellipse cx="60" cy="68" rx="28" ry="16" fill="#4E342E"/><ellipse cx="60" cy="54" rx="22" ry="14" fill="#5D4037"/><ellipse cx="60" cy="42" rx="16" ry="10" fill="#6D4C41"/><circle cx="50" cy="66" r="3.5" fill="#1a1a1a"/><circle cx="70" cy="66" r="3.5" fill="#1a1a1a"/><path d="M52 78 Q60 84 68 78" stroke="#1a1a1a" stroke-width="2" fill="none" stroke-linecap="round"/></svg>`
+};
+
+function getGiftSvg(key) {
+    return GIFT_SVG[key] || null;
+}
+
+function renderGiftMessage(msg, isMy) {
+    const svgData = getGiftSvg(msg.giftKey);
+    const isAuction = !!msg.auctionPrice;
+    const isSparkGift = !!msg.sparkIcon;
+    
+    const imgSrc = (msg.giftKey === 'sparksocks') ? 'gifts/socks.png'
+        : (msg.giftKey === 'sparkbackpack') ? 'gifts/backpack.png'
+        : (msg.giftKey === 'sparkfigure') ? 'gifts/figure.png'
+        : svgData ? `data:image/svg+xml,${encodeURIComponent(svgData)}` : null;
+    
+    const borderCol = isAuction ? 'border-color:rgba(255,100,0,0.3);' : isSparkGift ? 'border-color:rgba(108,92,231,0.3);' : '';
+    
+    const emojiOrImg = imgSrc
+        ? `<img src="${imgSrc}" style="width:80px;height:80px;border-radius:16px;object-fit:cover;">`
+        : `<div style="font-size:56px;line-height:1;">${msg.giftEmoji || '🎁'}</div>`;
+    
+    return `<div class="gift-msg-center"><div class="gift-msg-card" style="${borderCol}">
+        ${emojiOrImg}
+        <div style="font-weight:700;font-size:15px;margin-top:10px;">${msg.giftName || 'Подарок'}</div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">от ${escape(msg.senderName || '')}</div>
+        ${isAuction ? `<div style="font-size:11px;color:#ff6400;margin-top:6px;"><i class="fas fa-gavel"></i> Выиграно за ${msg.auctionPrice} ★</div>` : ''}
+    </div></div>`;
+}
+
+function showGiftAnimation(msg) {
+    const overlay = document.getElementById('giftAnimOverlay');
+    const imgEl = document.getElementById('giftAnimImage');
+    const nameEl = document.getElementById('giftAnimName');
+    const fromEl = document.getElementById('giftAnimFrom');
+    const particlesEl = document.getElementById('giftAnimParticles');
+    if (!overlay || !imgEl || !nameEl || !fromEl) return;
+    
+    const svgData = getGiftSvg(msg.giftKey);
+    if (svgData) {
+        imgEl.innerHTML = `<img src="data:image/svg+xml,${encodeURIComponent(svgData)}" style="width:140px;height:140px;filter:drop-shadow(0 8px 30px rgba(255,215,0,0.5));">`;
+        imgEl.style.background = 'radial-gradient(circle, rgba(255,215,0,0.15), transparent)';
+    } else {
+        imgEl.innerHTML = `<span style="font-size:100px;">${msg.giftEmoji || '🎁'}</span>`;
+        imgEl.style.background = 'radial-gradient(circle, rgba(255,215,0,0.1), transparent)';
+    }
+    
+    nameEl.textContent = msg.giftName || 'Подарок';
+    fromEl.textContent = `от ${msg.senderName || 'Неизвестно'}`;
+    
+    particlesEl.innerHTML = '';
+    const colors = ['#FFD700', '#FF8C00', '#FF4500', '#FFA500', '#FFDAB9', '#fff'];
+    for (let i = 0; i < 20; i++) {
+        const p = document.createElement('div');
+        const size = 4 + Math.random() * 8;
+        const x = 10 + Math.random() * 80;
+        const delay = Math.random() * 0.5;
+        const duration = 1 + Math.random() * 2;
+        p.style.cssText = `position:absolute;bottom:40%;left:${x}%;width:${size}px;height:${size}px;border-radius:50%;background:${colors[i % colors.length]};animation:giftParticle ${duration}s ease-out ${delay}s forwards;opacity:0;`;
+        particlesEl.appendChild(p);
+    }
+    
+    overlay.style.display = 'flex';
+    setTimeout(() => { overlay.style.display = 'none'; }, 3500);
+}
+
+// ========== AUCTION SYSTEM ==========
+let currentAuctionKey = null;
+let currentAuctionGift = null;
+let auctionUnsub = null;
+
+async function openAuctionModal(key, gift) {
+    currentAuctionKey = key;
+    currentAuctionGift = gift;
+    
+    let modal = document.getElementById('auctionModal');
+    if (!modal) {
+        const m = document.createElement('div');
+        m.id = 'auctionModal';
+        m.className = 'modal';
+        m.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;z-index:1500;';
+        m.innerHTML = `<div class="modal-card" style="max-width:380px;width:90%;">
+            <div class="modal-header">
+                <div style="display:flex;align-items:center;gap:8px;"><i class="fas fa-gavel" style="color:#ff6400;"></i><span id="auctionTitle" style="font-weight:700;">Аукцион</span></div>
+                <button class="close-btn" onclick="document.getElementById('auctionModal').style.display='none';if(window._auctionUnsub)window._auctionUnsub();">✕</button>
+            </div>
+            <div style="padding:20px;text-align:center;">
+                <div id="auctionGiftPreview" style="margin-bottom:12px;"></div>
+                <div id="auctionTimer" style="font-size:28px;font-weight:800;color:#ff6400;margin-bottom:8px;">00:00</div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;">Текущая ставка:</div>
+                <div id="auctionCurrentBid" style="font-size:24px;font-weight:800;color:#ffd700;margin-bottom:4px;">0 ★</div>
+                <div id="auctionBidder" style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;">Пока нет ставок</div>
+                <div style="display:flex;gap:8px;margin-bottom:12px;">
+                    <input type="number" id="auctionBidInput" class="input" placeholder="Ставка ★" style="flex:1;margin:0;padding:12px;">
+                    <button id="auctionBidBtn" style="padding:12px 20px;border:none;border-radius:28px;background:linear-gradient(135deg,#ff6400,#ff3200);color:#fff;font-weight:700;cursor:pointer;font-size:14px;">Ставка</button>
+                </div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;" id="auctionQuickBids"></div>
+            </div>
+        </div>`;
+        document.body.appendChild(m);
+        document.getElementById('auctionBidBtn').addEventListener('click', placeAuctionBid);
+        modal = m;
+    }
+    
+    modal.style.display = 'flex';
+    
+    document.getElementById('auctionTitle').textContent = gift.name;
+    document.getElementById('auctionGiftPreview').innerHTML = `<div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#ff6400,#ff3200);display:flex;align-items:center;justify-content:center;margin:0 auto;animation:sparkGiftPulse 2s ease-in-out infinite;"><span style="font-size:36px;">${gift.emoji}</span></div>`;
+    document.getElementById('auctionCurrentBid').textContent = gift.price + ' ★';
+    document.getElementById('auctionBidder').textContent = 'Стартовая цена: ' + gift.price + ' ★';
+    document.getElementById('auctionBidInput').value = '';
+    document.getElementById('auctionBidInput').min = gift.price + 1;
+    document.getElementById('auctionBidInput').placeholder = 'Мин. ' + (gift.price + 1) + ' ★';
+    
+    const quickBids = document.getElementById('auctionQuickBids');
+    quickBids.innerHTML = '';
+    [gift.price + 50, gift.price + 200, gift.price + 500, gift.price + 1000].forEach(amt => {
+        const btn = document.createElement('button');
+        btn.style.cssText = 'padding:6px 14px;border:1px solid rgba(255,100,0,0.3);border-radius:20px;background:rgba(255,100,0,0.1);color:#ff6400;font-size:12px;cursor:pointer;font-weight:600;';
+        btn.textContent = amt.toLocaleString() + ' ★';
+        btn.onclick = () => { document.getElementById('auctionBidInput').value = amt; };
+        quickBids.appendChild(btn);
+    });
+    
+    listenAuction(key, gift);
+}
+
+async function listenAuction(key, gift) {
+    if (auctionUnsub) auctionUnsub();
+    
+    const auctionRef = doc(db, "auctions", key);
+    try {
+        const snap = await getDoc(auctionRef);
+        if (!snap.exists()) {
+            await setDoc(auctionRef, {
+                giftKey: key,
+                giftEmoji: gift.emoji,
+                giftName: gift.name,
+                startPrice: gift.price,
+                currentBid: gift.price,
+                currentBidder: null,
+                currentBidderName: null,
+                endTime: Date.now() + 5 * 60 * 1000,
+                status: 'active',
+                bids: []
+            });
+        }
+    } catch(e) {}
+    
+    auctionUnsub = onSnapshot(auctionRef, (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        
+        if (data.status === 'ended') {
+            document.getElementById('auctionModal').style.display = 'none';
+            if (data.currentBidder === currentUser?.uid) {
+                showDynamicIsland(`🎉 Вы выиграли ${data.giftName} за ${data.currentBid} ★!`, 'success');
+            } else {
+                showDynamicIsland(`Аукцион "${data.giftName}" завершён`, 'info');
+            }
+            return;
+        }
+        
+        document.getElementById('auctionCurrentBid').textContent = data.currentBid.toLocaleString() + ' ★';
+        document.getElementById('auctionBidder').textContent = data.currentBidderName ? `Лидер: ${data.currentBidderName}` : 'Пока нет ставок';
+        document.getElementById('auctionBidInput').min = data.currentBid + 1;
+        document.getElementById('auctionBidInput').placeholder = 'Мин. ' + (data.currentBid + 1) + ' ★';
+        
+        const timeLeft = Math.max(0, data.endTime - Date.now());
+        const mins = Math.floor(timeLeft / 60000);
+        const secs = Math.floor((timeLeft % 60000) / 1000);
+        document.getElementById('auctionTimer').textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        document.getElementById('auctionTimer').style.color = timeLeft < 30000 ? '#ff3b30' : '#ff6400';
+        
+        if (timeLeft <= 0 && data.status === 'active') {
+            endAuction(key, data);
+        }
+    });
+    
+    window._auctionUnsub = () => { if (auctionUnsub) { auctionUnsub(); auctionUnsub = null; } };
+}
+
+async function placeAuctionBid() {
+    if (!currentUser || !currentAuctionKey || !currentAuctionGift) return;
+    const input = document.getElementById('auctionBidInput');
+    const amount = parseInt(input?.value);
+    if (!amount || amount <= 0) { showDynamicIsland('Введите ставку', 'error'); return; }
+    
+    try {
+        const auctionDoc = await getDoc(doc(db, "auctions", currentAuctionKey));
+        if (!auctionDoc.exists()) return;
+        const auction = auctionDoc.data();
+        
+        if (amount <= auction.currentBid) {
+            showDynamicIsland(`Ставка должна быть больше ${auction.currentBid} ★`, 'error');
+            return;
+        }
+        if (amount > userStars) {
+            showDynamicIsland('Недостаточно звёзд', 'error');
+            return;
+        }
+        if (auction.status !== 'active') {
+            showDynamicIsland('Аукцион завершён', 'error');
+            return;
+        }
+        
+        if (auction.currentBidder && auction.currentBidder !== currentUser.uid) {
+            await updateDoc(doc(db, "users", auction.currentBidder), { stars: increment(auction.currentBid) });
+        }
+        
+        await updateDoc(doc(db, "users", currentUser.uid), { stars: increment(-amount) });
+        userStars -= amount;
+        updateStarsUI();
+        
+        await updateDoc(doc(db, "auctions", currentAuctionKey), {
+            currentBid: amount,
+            currentBidder: currentUser.uid,
+            currentBidderName: currentUser.name || currentUser.username,
+            bids: arrayUnion({ uid: currentUser.uid, name: currentUser.name, amount, time: Date.now() })
+        });
+        
+        input.value = '';
+        showDynamicIsland(`Ставка ${amount} ★ принята!`, 'success');
+    } catch(e) {
+        showDynamicIsland('Ошибка ставки', 'error');
+    }
+}
+
+async function endAuction(key, auctionData) {
+    try {
+        await updateDoc(doc(db, "auctions", key), { status: 'ended' });
+        
+        if (auctionData.currentBidder) {
+            const chatSnap = await getDocs(query(collection(db, "chats"), where("type", "==", "private")));
+            let chatId = null;
+            chatSnap.forEach(d => {
+                const members = d.data().members || [];
+                const uids = members.map(m => m.uid);
+                if (uids.includes(auctionData.currentBidder)) {
+                    if (!chatId) chatId = d.id;
+                }
+            });
+            
+            if (chatId) {
+                await addDoc(collection(db, "messages"), {
+                    chatId, type: 'gift', giftKey: auctionData.giftKey, giftEmoji: auctionData.giftEmoji,
+                    giftName: auctionData.giftName, senderId: auctionData.currentBidder,
+                    senderName: auctionData.currentBidderName,
+                    auctionPrice: auctionData.currentBid, sparkIcon: true, animated: true,
+                    timestamp: serverTimestamp(), _localTime: Date.now()
+                });
+                await updateDoc(doc(db, "chats", chatId), { lastMessage: `🏆 ${auctionData.giftName}`, lastMessageTime: serverTimestamp() });
+            }
+        }
+    } catch(e) {}
+}
+
+// ========== ADMIN: SET GIFT PRICES (for @kail) ==========
+async function loadGiftPricesForAdmin() {
+    if (!currentUser || !isCreator(currentUser)) return;
+    try {
+        const settingsDoc = await getDoc(doc(db, "settings", "gifts"));
+        if (settingsDoc.exists()) {
+            const data = settingsDoc.data();
+            if (data.prices) {
+                for (const [key, val] of Object.entries(data.prices)) {
+                    if (giftPrices[key]) giftPrices[key].price = val;
+                }
+            }
+        }
+    } catch(e) {}
+    const container = document.getElementById('adminGiftPrices');
+    if (!container) return;
+    const gifts = Object.entries(giftPrices);
+    container.innerHTML = gifts.map(([key, g]) => `
+        <button class="btn" style="background:var(--card);color:var(--text);font-size:13px;padding:14px;text-align:center;border:1px solid var(--border);border-radius:var(--radius-md);cursor:pointer;" onclick="window.editGiftPrice('${key}')">
+            <div style="font-size:24px;margin-bottom:4px;">${g.emoji || ''}</div>
+            <div style="font-weight:600;">${g.name}</div>
+            <div style="font-size:11px;color:var(--accent);margin-top:2px;">${g.price} ★</div>
+        </button>
+    `).join('');
+}
+
+window.editGiftPrice = function(key) {
+    const g = giftPrices[key];
+    if (!g) return;
+    const newPrice = prompt(`${g.name} — текущая цена: ${g.price} ★\nВведите новую цену:`, g.price);
+    if (newPrice === null) return;
+    window.setGiftPrice(key, newPrice);
+};
+
+window.setGiftPrice = async function(key, newPrice) {
+    if (!currentUser || !isCreator(currentUser)) return;
+    const price = parseInt(newPrice);
+    if (isNaN(price) || price < 0) return;
+    try {
+        const currentPrices = {};
+        for (const [k, v] of Object.entries(giftPrices)) currentPrices[k] = v.price;
+        currentPrices[key] = price;
+        await setDoc(doc(db, "settings", "gifts"), { prices: currentPrices }, { merge: true });
+        giftPrices[key].price = price;
+        renderGiftsList();
+        showDynamicIsland(`${giftPrices[key].name}: ${price} ★`, 'success');
+    } catch(e) {
+        showDynamicIsland('Ошибка', 'error');
+    }
+};
+
+// ========== INIT STARS ==========
+function initStarsSystem() {
+    loadUserStars();
+    loadGiftPrices();
+    renderGiftsList();
+    if (isCreator(currentUser)) loadGiftPricesForAdmin();
+}
+
+// Patch onAuthStateChanged to init stars after login
+const _origOnAuth = onAuthStateChanged;
+const _patchedInit = () => {
+    setTimeout(() => {
+        if (currentUser) initStarsSystem();
+    }, 2000);
+};
+setTimeout(_patchedInit, 3000);
+
+// Also init on profile tab open
+const _origLoadProfileTab = loadProfileTab;
+loadProfileTab = function() {
+    _origLoadProfileTab();
+    if (currentUser) loadUserStars();
+};
+
+// Backup event listeners for profile buttons (in case inline onclick doesn't work)
+setTimeout(() => {
+    document.getElementById('profileStarsDisplay')?.addEventListener('click', () => {
+        loadUserStars();
+        openPanel('wallet');
+    });
+    document.querySelectorAll('#pane-profile .small-btn').forEach(btn => {
+        if (btn.textContent.includes('Подарки')) {
+            btn.addEventListener('click', () => { renderGiftsList(); openPanel('gifts'); });
+        }
+        if (btn.textContent.includes('Тапалка')) {
+            btn.addEventListener('click', () => { openPanel('clicker'); });
+        }
+    });
+    
+    // Show gift animation when gift message appears in chat
+    if (unsubMessages) {
+        const origUnsub = unsubMessages;
+        unsubMessages = origUnsub;
+    }
+}, 500);
+
+// ========== CREATE AUCTION FROM GIFT ==========
+async function createAuctionForGift(key, gift) {
+    if (!currentUser) return;
+    if (userStars < gift.price) {
+        showDynamicIsland('Недостаточно звёзд', 'error');
+        return;
+    }
+    try {
+        await updateDoc(doc(db, "users", currentUser.uid), { stars: increment(-gift.price) });
+        userStars -= gift.price;
+        updateStarsUI();
+        
+        const auctionId = key + '_' + Date.now();
+        await setDoc(doc(db, "auctions", auctionId), {
+            giftKey: key,
+            giftEmoji: gift.emoji,
+            giftName: gift.name,
+            startPrice: gift.price,
+            currentBid: gift.price,
+            currentBidder: null,
+            currentBidderName: null,
+            endTime: Date.now() + 5 * 60 * 1000,
+            status: 'active',
+            creatorId: currentUser.uid,
+            creatorName: currentUser.name,
+            bids: [],
+            createdAt: Date.now()
+        });
+        showDynamicIsland(`${gift.name} выставлен на аукцион!`, 'success');
+        openAuctionModal(auctionId, gift);
+    } catch(e) {
+        showDynamicIsland('Ошибка: ' + (e.message || e), 'error');
+    }
+}
+
+// ========== AUCTION LIST IN PANEL ==========
+async function loadAuctionList() {
+    const container = document.getElementById('auctionList');
+    if (!container) return;
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);"><i class="fas fa-spinner fa-spin"></i></div>';
+    
+    try {
+        const auctionsSnap = await getDocs(collection(db, "auctions"));
+        container.innerHTML = '';
+        let found = false;
+        
+        auctionsSnap.forEach(d => {
+            const auction = d.data();
+            if (auction.status === 'ended') return;
+            found = true;
+            const timeLeft = Math.max(0, auction.endTime - Date.now());
+            const mins = Math.floor(timeLeft / 60000);
+            const secs = Math.floor((timeLeft % 60000) / 1000);
+            const svgData = getGiftSvg(auction.giftKey);
+            
+            const div = document.createElement('div');
+            div.style.cssText = 'background:linear-gradient(135deg,rgba(255,100,0,0.08),rgba(255,50,0,0.03));border:1px solid rgba(255,100,0,0.25);border-radius:var(--radius-md);padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:transform 0.2s;';
+            
+            const imgHtml = svgData 
+                ? `<img src="data:image/svg+xml,${encodeURIComponent(svgData)}" style="width:52px;height:52px;filter:drop-shadow(0 2px 6px rgba(255,215,0,0.3));">`
+                : `<div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#ff6400,#ff3200);display:flex;align-items:center;justify-content:center;font-size:26px;">${auction.giftEmoji || '🎁'}</div>`;
+            
+            div.innerHTML = `${imgHtml}
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:15px;color:var(--text);">${auction.giftName || 'Подарок'}</div>
+                    <div style="font-size:12px;color:#ff6400;font-weight:600;">Текущая ставка: ${auction.currentBid?.toLocaleString() || auction.startPrice} ★</div>
+                    <div style="font-size:11px;color:var(--text-secondary);">${auction.currentBidderName ? `Лидер: ${auction.currentBidderName}` : 'Пока нет ставок'}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:18px;font-weight:800;color:${timeLeft < 30000 ? '#ff3b30' : '#ff6400'};font-variant-numeric:tabular-nums;">${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}</div>
+                    <div style="font-size:10px;color:var(--text-secondary);">осталось</div>
+                </div>`;
+            
+            div.onclick = () => openAuctionModal(d.id, { 
+                emoji: auction.giftEmoji, name: auction.giftName, 
+                price: auction.startPrice, key: auction.giftKey 
+            });
+            div.onmouseenter = () => div.style.transform = 'scale(1.02)';
+            div.onmouseleave = () => div.style.transform = 'scale(1)';
+            container.appendChild(div);
+        });
+        
+        if (!found) {
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);"><i class="fas fa-gavel" style="font-size:32px;margin-bottom:12px;opacity:0.3;"></i><div>Нет активных аукционов</div><div style="font-size:12px;margin-top:4px;">Дорогие подарки автоматически попадают на аукцион</div></div>';
+        }
+    } catch(e) {
+        container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);">Ошибка загрузки</div>';
+    }
+}
+
+// Wire up auction panel open
+document.getElementById('tab-profile-btn')?.addEventListener('click', () => {
+    // Already handled by existing listener
+});
+
+// Show gift animation on chat open if latest message is a gift
+let _lastGiftCheck = null;
+function checkAndAnimateGift(snap) {
+    if (!currentUser) return;
+    snap.docChanges().forEach(change => {
+        if (change.type === 'added') {
+            const msg = change.doc.data();
+            if (msg.type === 'gift' && msg.senderId !== currentUser.uid && msg.chatId === currentChatId) {
+                setTimeout(() => showGiftAnimation(msg), 300);
+            }
+        }
+    });
+}

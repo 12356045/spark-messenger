@@ -1,9 +1,9 @@
-import { doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { doc, updateDoc } from "./vendor/firebase/firebase-firestore.js";
 import { db } from "./firebase-config.js";
 
 const languages = {
     ru: {
-        chats: "Чаты", settings: "Настройки", notifications: "Уведомления", profile: "Мой профиль",
+        chats: "Чаты", feed: "Лента", settings: "Настройки", notifications: "Уведомления", profile: "Мой профиль",
         appearance: "Оформление", lang: "Язык", logout: "Выйти из аккаунта", search: "Поиск по @username...",
         security: "Безопасность", storage: "Хранилище", message: "Сообщение...", offline: "не в сети",
         online: "в сети", noChats: "Нет чатов", noMessages: "Нет сообщений", pinChat: "Закрепить чат",
@@ -21,7 +21,7 @@ const languages = {
         notFound: "Никого не найдено", noMessagesPreview: "Нет сообщений", edited: "(ред.)"
     },
     en: {
-        chats: "Chats", settings: "Settings", notifications: "Notifications", profile: "My Profile",
+        chats: "Chats", feed: "Feed", settings: "Settings", notifications: "Notifications", profile: "My Profile",
         appearance: "Appearance", lang: "Language", logout: "Log Out", search: "Search by @username...",
         security: "Security", storage: "Storage", message: "Message...", offline: "offline",
         online: "online", noChats: "No chats", noMessages: "No messages", pinChat: "Pin chat",
@@ -39,7 +39,7 @@ const languages = {
         notFound: "No one found", noMessagesPreview: "No messages", edited: "(edited)"
     },
     uk: {
-        chats: "Чати", settings: "Налаштування", notifications: "Сповіщення", profile: "Мій профіль",
+        chats: "Чати", feed: "Стрічка", settings: "Налаштування", notifications: "Сповіщення", profile: "Мій профіль",
         appearance: "Оформлення", lang: "Мова", logout: "Вийти з акаунта", search: "Пошук за @username...",
         security: "Безпека", storage: "Сховище", message: "Повідомлення...", offline: "не в мережі",
         online: "в мережі", noChats: "Немає чатів", noMessages: "Немає повідомлень", pinChat: "Закріпити чат",
@@ -57,7 +57,7 @@ const languages = {
         notFound: "Нікого не знайдено", noMessagesPreview: "Немає повідомлень", edited: "(ред.)"
     },
     kk: {
-        chats: "Чаттар", settings: "Баптаулар", notifications: "Хабарландырулар", profile: "Менің профилім",
+        chats: "Чаттар", feed: "Лента", settings: "Баптаулар", notifications: "Хабарландырулар", profile: "Менің профилім",
         appearance: "Әрлеу", lang: "Тіл", logout: "Аккаунттан шығу", search: "@username бойынша іздеу...",
         security: "Қауіпсіздік", storage: "Сақтау", message: "Хабарлама...", offline: "желіде емес",
         online: "желіде", noChats: "Чаттар жоқ", noMessages: "Хабарламалар жоқ", pinChat: "Чатты бекіту",
@@ -106,16 +106,21 @@ export function applySavedLanguage() {
     const dict = languages[getLang()];
     if (!dict) return;
 
+    const tabSvgChats = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+    const tabSvgFeed = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>';
+    const tabSvgProfile = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
     const map = {
-        'tab-chats-btn': `<i class="fas fa-comment-alt"></i>${dict.chats}`,
-        'tab-settings-btn': `<i class="fas fa-cog"></i>${dict.settings}`,
-        'label-notifications': `<i class="fas fa-bell"></i> ${dict.notifications}`,
-        'btn-profile-edit': `<i class="fas fa-user"></i> ${dict.profile}`,
-        'btn-theme-edit': `<i class="fas fa-palette"></i> ${dict.appearance}`,
-        'btn-lang-edit': `<i class="fas fa-globe"></i> ${dict.lang}`,
-        'btn-security-edit': `<i class="fas fa-shield-alt"></i> ${dict.security}`,
-        'btn-storage-edit': `<i class="fas fa-database"></i> ${dict.storage}`,
-        'btn-logout': `<i class="fas fa-sign-out-alt"></i> ${dict.logout}`,
+        'tab-chats-btn': `${tabSvgChats}<span>${dict.chats}</span>`,
+        'tab-feed-btn': `${tabSvgFeed}<span>${dict.feed || 'Лента'}</span>`,
+        'tab-profile-btn': `${tabSvgProfile}<span>${dict.profile}</span>`,
+        'tab-settings-btn': `${dict.settings}`,
+        'label-notifications': `${dict.notifications}`,
+        'btn-profile-edit': `${dict.profile}`,
+        'btn-theme-edit': `${dict.appearance}`,
+        'btn-lang-edit': `${dict.lang}`,
+        'btn-security-edit': `${dict.security}`,
+        'btn-storage-edit': `${dict.storage}`,
+        'btn-logout': `${dict.logout}`,
         'btnChangeAvatar': `<i class="fas fa-camera"></i> ${dict.changePhoto}`,
         'btnSaveProfile': dict.saveProfile,
         'btnClearCache': dict.clearCache,
@@ -185,14 +190,27 @@ export function syncProfile(currentUser) {
     renderAvatar(previewEl, { avatarUrl: avatarSrc, name: currentUser.name });
 }
 
-export function switchTab(tab, btn) {
+export function switchTab(tab, btn, direction = 'left') {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    const oldPane = document.querySelector('.tab-pane.active');
+    document.querySelectorAll('.full-pane').forEach(p => p.classList.remove('active'));
     if (btn) btn.classList.add('active');
-    document.getElementById(`pane-${tab}`)?.classList.add('active');
+    const newPane = document.getElementById(`pane-${tab}`);
+    if (newPane) {
+        newPane.classList.remove('slide-left', 'slide-right', 'active');
+        // iOS 26 style transition
+        if (oldPane && oldPane !== newPane) {
+            oldPane.classList.add(direction === 'left' ? 'slide-left' : 'slide-right');
+            setTimeout(() => oldPane.classList.remove('slide-left', 'slide-right'), 500);
+        }
+        newPane.classList.add('active');
+    }
+    const tabBtn = document.getElementById(`tab-${tab}-btn`);
+    if (tabBtn) tabBtn.classList.add('active');
 }
 
 export function openPanel(id) {
+    document.querySelectorAll('.full-pane.active').forEach(p => p.classList.remove('active'));
     const panelId = `panel${id.charAt(0).toUpperCase() + id.slice(1)}`;
     const panel = document.getElementById(panelId);
     if (panel) panel.classList.add('active');
