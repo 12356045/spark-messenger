@@ -1522,14 +1522,14 @@ function openChat(id, name, otherId = null) {
                     const audioSrc = getBlobUrlFromBase64(msg.content);
                     const dur = msg.duration || 0;
                     const durStr = dur > 0 ? `${Math.floor(dur/60)}:${(dur%60).toString().padStart(2,'0')}` : '0:00';
-                    const msgId = 'voice_' + msg.id;
+                    const msgId = 'v_' + Math.random().toString(36).substr(2,8);
                     content = `<div style="display:flex;align-items:center;gap:10px;min-width:180px;">
-                        <button class="voice-msg-play" onclick="event.stopPropagation();const a=document.getElementById('${msgId}');if(a.paused){a.play();this.innerHTML='⏸';}else{a.pause();this.innerHTML='▶';}"><span>▶</span></button>
+                        <button class="voice-msg-play" data-audio="${msgId}"><span>▶</span></button>
                         <div class="voice-bars" style="opacity:0.5;">
                             <span class="voice-bar" style="animation-duration:0.5s;"></span><span class="voice-bar" style="animation-duration:0.7s;"></span><span class="voice-bar" style="animation-duration:0.4s;"></span><span class="voice-bar" style="animation-duration:0.6s;"></span><span class="voice-bar" style="animation-duration:0.55s;"></span>
                         </div>
                         <span style="font-size:12px;color:var(--text-secondary);flex-shrink:0;">${durStr}</span>
-                        <audio id="${msgId}" preload="metadata" playsinline src="${audioSrc}" style="display:none;" onended="this.previousElementSibling?.previousElementSibling?.previousElementSibling?.querySelector('span').textContent='▶';"></audio>
+                        <audio id="${msgId}" preload="auto" playsinline src="${audioSrc}" style="display:none;"></audio>
                     </div>`; 
                 } 
                 else if(msg.type === 'call') {
@@ -1777,6 +1777,29 @@ function listenTyping(uid) {
         }
     });
 }
+
+// Camera button opens circle recording
+const cameraBtn = document.getElementById('btnCamera');
+if (cameraBtn) {
+    cameraBtn.addEventListener('click', async () => {
+        if (!currentChatId) { showDynamicIsland('Выберите чат', 'error'); return; }
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 480, height: 480 }, audio: true });
+            circlePreviewStream = stream;
+            const preview = document.getElementById('cameraPreview');
+            if (preview) { preview.srcObject = stream; preview.muted = true; await preview.play().catch(() => {}); }
+            document.getElementById('cameraPreviewModal').style.display = 'flex';
+        } catch(e) {
+            showDynamicIsland('Нет доступа к камере', 'error');
+        }
+    });
+}
+
+// Close camera modal
+document.getElementById('closeCameraModal')?.addEventListener('click', () => {
+    document.getElementById('cameraPreviewModal').style.display = 'none';
+    if (circlePreviewStream) { circlePreviewStream.getTracks().forEach(t => t.stop()); circlePreviewStream = null; }
+});
 
 const backBtn = document.getElementById('btnExitChat');
 if (backBtn) {
@@ -2658,6 +2681,26 @@ document.getElementById('closeSettingsPanelBtn')?.addEventListener('click', () =
 
 initPanelHandlers({ showToast: showDynamicIsland });
 
+// Voice message play handler (delegated)
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.voice-msg-play');
+    if (!btn) return;
+    e.stopPropagation();
+    const audioId = btn.dataset.audio;
+    const audio = document.getElementById(audioId);
+    if (!audio) return;
+    const span = btn.querySelector('span');
+    if (audio.paused) {
+        document.querySelectorAll('audio').forEach(a => { if (a !== audio) { a.pause(); } });
+        document.querySelectorAll('.voice-msg-play span').forEach(s => s.textContent = '▶');
+        audio.play().then(() => { if (span) span.textContent = '⏸'; }).catch(() => {});
+    } else {
+        audio.pause();
+        if (span) span.textContent = '▶';
+    }
+    audio.onended = () => { if (span) span.textContent = '▶'; };
+});
+
 // Secure Mode toggle with animated checkmark
 let secureModeEnabled = localStorage.getItem('spark-secure-mode') === 'true';
 function updateSecureModeUI() {
@@ -2876,14 +2919,14 @@ function openChannel(id, name, channelData) {
                     const audioSrc = getBlobUrlFromBase64(msg.content);
                     const dur = msg.duration || 0;
                     const durStr = dur > 0 ? `${Math.floor(dur/60)}:${(dur%60).toString().padStart(2,'0')}` : '0:00';
-                    const msgId = 'vc_' + msg.id;
+                    const msgId = 'vc_' + Math.random().toString(36).substr(2,8);
                     content = `<div style="display:flex;align-items:center;gap:10px;min-width:180px;">
-                        <button class="voice-msg-play" onclick="event.stopPropagation();const a=document.getElementById('${msgId}');if(a.paused){a.play();this.querySelector('span').textContent='⏸';}else{a.pause();this.querySelector('span').textContent='▶';}"><span>▶</span></button>
+                        <button class="voice-msg-play" data-audio="${msgId}"><span>▶</span></button>
                         <div class="voice-bars" style="opacity:0.5;">
                             <span class="voice-bar" style="animation-duration:0.5s;"></span><span class="voice-bar" style="animation-duration:0.7s;"></span><span class="voice-bar" style="animation-duration:0.4s;"></span><span class="voice-bar" style="animation-duration:0.6s;"></span><span class="voice-bar" style="animation-duration:0.55s;"></span>
                         </div>
                         <span style="font-size:12px;color:var(--text-secondary);flex-shrink:0;">${durStr}</span>
-                        <audio id="${msgId}" preload="metadata" playsinline src="${audioSrc}" style="display:none;" onended="this.parentElement.querySelector('.voice-msg-play span').textContent='▶';"></audio>
+                        <audio id="${msgId}" preload="auto" playsinline src="${audioSrc}" style="display:none;"></audio>
                     </div>`;
                 } else if (msg.type === 'system') {
                     content = `<div class="message-text" style="font-style: italic; opacity: 0.7;">${escape(msg.text)}</div>`;
