@@ -5820,7 +5820,7 @@ const GIFT_PRICES_DEFAULT = {
     sparkfigure: { emoji: '🤝', icon: 'fa-user-tie', name: 'Фигурка Спарк', price: 7500, animated: true, sparkIcon: true, auction: true }
 };
 
-let giftPrices = { ...GIFT_PRICES_DEFAULT };
+giftPrices = { ...GIFT_PRICES_DEFAULT };
 
 async function loadGiftPrices() {
     try {
