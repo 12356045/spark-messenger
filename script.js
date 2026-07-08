@@ -1488,6 +1488,7 @@ function openChat(id, name, otherId = null) {
             const tb = b.timestamp?.toMillis?.() || b._localTime || 0;
             return ta - tb;
         });
+        window._lastRenderedMessages = msgs;
         let area = document.getElementById('messagesArea'); 
         if (!area) return;
         area.querySelectorAll('[data-msg-id^="optimistic_"]').forEach(el => el.remove());
@@ -1522,14 +1523,12 @@ function openChat(id, name, otherId = null) {
                     const audioSrc = getBlobUrlFromBase64(msg.content);
                     const dur = msg.duration || 0;
                     const durStr = dur > 0 ? `${Math.floor(dur/60)}:${(dur%60).toString().padStart(2,'0')}` : '0:00';
-                    const msgId = 'v_' + Math.random().toString(36).substr(2,8);
-                    content = `<div style="display:flex;align-items:center;gap:10px;min-width:180px;">
-                        <button class="voice-msg-play" data-audio="${msgId}"><span>▶</span></button>
+                    content = `<div class="voice-msg-wrap" style="display:flex;align-items:center;gap:10px;min-width:180px;">
+                        <button class="voice-msg-play" style="width:36px;height:36px;border-radius:50%;border:none;background:rgba(0,0,0,0.08);color:var(--text);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">▶</button>
                         <div class="voice-bars" style="opacity:0.5;">
                             <span class="voice-bar" style="animation-duration:0.5s;"></span><span class="voice-bar" style="animation-duration:0.7s;"></span><span class="voice-bar" style="animation-duration:0.4s;"></span><span class="voice-bar" style="animation-duration:0.6s;"></span><span class="voice-bar" style="animation-duration:0.55s;"></span>
                         </div>
                         <span style="font-size:12px;color:var(--text-secondary);flex-shrink:0;">${durStr}</span>
-                        <audio id="${msgId}" preload="auto" playsinline src="${audioSrc}" style="display:none;"></audio>
                     </div>`; 
                 } 
                 else if(msg.type === 'call') {
@@ -1797,15 +1796,7 @@ const cameraBtn = document.getElementById('btnCamera');
 if (cameraBtn) {
     cameraBtn.addEventListener('click', async () => {
         if (!currentChatId) { showDynamicIsland('Выберите чат', 'error'); return; }
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 480, height: 480 }, audio: true });
-            circlePreviewStream = stream;
-            const preview = document.getElementById('cameraPreview');
-            if (preview) { preview.srcObject = stream; preview.muted = true; await preview.play().catch(() => {}); }
-            document.getElementById('cameraPreviewModal').style.display = 'flex';
-        } catch(e) {
-            showDynamicIsland('Нет доступа к камере', 'error');
-        }
+        startCircleRecordingWithPreview();
     });
 }
 
@@ -2711,25 +2702,38 @@ document.getElementById('closeSettingsPanelBtn')?.addEventListener('click', () =
 initPanelHandlers({ showToast: showDynamicIsland });
 
 // Voice message play handler (delegated)
+let currentVoiceAudio = null;
 document.addEventListener('click', (e) => {
     const btn = e.target.closest('.voice-msg-play');
     if (!btn) return;
     e.stopPropagation();
-    e.preventDefault();
-    const audioId = btn.getAttribute('data-audio');
-    if (!audioId) return;
-    const audio = document.getElementById(audioId);
-    if (!audio) { console.warn('Audio not found:', audioId); return; }
-    const span = btn.querySelector('span');
-    if (audio.paused) {
-        document.querySelectorAll('audio').forEach(a => { if (a !== audio && !a.paused) { a.pause(); } });
-        document.querySelectorAll('.voice-msg-play span').forEach(s => { if (s !== span) s.textContent = '▶'; });
-        audio.play().then(() => { if (span) span.textContent = '⏸'; }).catch(err => { console.warn('Play error:', err); });
-    } else {
-        audio.pause();
-        if (span) span.textContent = '▶';
+    const wrap = btn.closest('.voice-msg-wrap');
+    if (!wrap) return;
+    // Find audio src from the original message data
+    const msgEl = wrap.closest('[data-msg-id]');
+    if (!msgEl) return;
+    const msgId = msgEl.getAttribute('data-msg-id');
+    // Find the cached message
+    const allMsgs = window._lastRenderedMessages || [];
+    const msgData = allMsgs.find(m => m.id === msgId);
+    if (!msgData || !msgData.content) return;
+    const audioSrc = getBlobUrlFromBase64(msgData.content);
+    if (!audioSrc) return;
+    if (currentVoiceAudio && !currentVoiceAudio.paused) {
+        currentVoiceAudio.pause();
+        document.querySelectorAll('.voice-msg-play').forEach(b => b.textContent = '▶');
     }
-    audio.onended = () => { if (span) span.textContent = '▶'; };
+    if (currentVoiceAudio && currentVoiceAudio._src === audioSrc && currentVoiceAudio.paused) {
+        currentVoiceAudio.play().then(() => btn.textContent = '⏸').catch(() => {});
+        return;
+    }
+    const audio = new Audio(audioSrc);
+    audio._src = audioSrc;
+    audio preload = 'auto';
+    currentVoiceAudio = audio;
+    audio.play().then(() => btn.textContent = '⏸').catch(err => console.warn('Voice play:', err));
+    audio.onended = () => { btn.textContent = '▶'; currentVoiceAudio = null; };
+    audio.onerror = () => { btn.textContent = '▶'; showDynamicIsland('Ошибка воспроизведения', 'error'); };
 }, true);
 
 // Secure Mode toggle with animated checkmark
@@ -2950,14 +2954,12 @@ function openChannel(id, name, channelData) {
                     const audioSrc = getBlobUrlFromBase64(msg.content);
                     const dur = msg.duration || 0;
                     const durStr = dur > 0 ? `${Math.floor(dur/60)}:${(dur%60).toString().padStart(2,'0')}` : '0:00';
-                    const msgId = 'vc_' + Math.random().toString(36).substr(2,8);
-                    content = `<div style="display:flex;align-items:center;gap:10px;min-width:180px;">
-                        <button class="voice-msg-play" data-audio="${msgId}"><span>▶</span></button>
+                    content = `<div class="voice-msg-wrap" style="display:flex;align-items:center;gap:10px;min-width:180px;">
+                        <button class="voice-msg-play" style="width:36px;height:36px;border-radius:50%;border:none;background:rgba(0,0,0,0.08);color:var(--text);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">▶</button>
                         <div class="voice-bars" style="opacity:0.5;">
                             <span class="voice-bar" style="animation-duration:0.5s;"></span><span class="voice-bar" style="animation-duration:0.7s;"></span><span class="voice-bar" style="animation-duration:0.4s;"></span><span class="voice-bar" style="animation-duration:0.6s;"></span><span class="voice-bar" style="animation-duration:0.55s;"></span>
                         </div>
                         <span style="font-size:12px;color:var(--text-secondary);flex-shrink:0;">${durStr}</span>
-                        <audio id="${msgId}" preload="auto" playsinline src="${audioSrc}" style="display:none;"></audio>
                     </div>`;
                 } else if (msg.type === 'system') {
                     content = `<div class="message-text" style="font-style: italic; opacity: 0.7;">${escape(msg.text)}</div>`;
@@ -3545,6 +3547,8 @@ async function openProfileModal(userId) {
     if (modalUser) { modalUser.style.display = 'block'; modalUser.textContent = u.username || ''; }
     document.getElementById('modalTargetBio').textContent = u.bio || t('noInfo');
     document.getElementById('modalTargetBirth').textContent = u.birth || t('notSpecified');
+    const onlineEl = document.getElementById('modalTargetOnline');
+    if (onlineEl) onlineEl.textContent = u.online ? 'В сети' : 'Не в сети';
     
     // Creator badge
     const creatorBadge = document.getElementById('modalCreatorBadge');
@@ -3718,6 +3722,15 @@ async function openProfileModal(userId) {
     
     document.getElementById('profileInfoModal').style.display = 'flex';
 }
+
+function closeProfileModal() {
+    const modal = document.getElementById('profileInfoModal');
+    if (!modal) return;
+    const card = modal.querySelector('.profile-info-card');
+    if (card) card.style.animation = 'modalSlideDown 0.3s cubic-bezier(0.16,1,0.3,1) forwards';
+    setTimeout(() => { modal.style.display = 'none'; if (card) card.style.animation = ''; }, 300);
+}
+window.closeProfileModal = closeProfileModal;
 
 async function loadModalReposts(userId) {
     const list = document.getElementById('modalRepostsList');
