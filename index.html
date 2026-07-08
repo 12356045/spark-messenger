@@ -277,7 +277,12 @@
         .tab-btn.active { color: var(--text); }
         .tab-btn svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-        .full-pane { position: fixed; inset: 0; background: rgba(0,0,0,0.15); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 9000; display: none; flex-direction: column; padding: calc(15px + var(--safe-top)) 20px var(--safe-bottom); overflow-y: auto; }
+        .full-pane { position: fixed; inset: 0; background: rgba(0,0,0,0.15); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 9000; display: none; flex-direction: column; padding: calc(15px + var(--safe-top)) 20px var(--safe-bottom); overflow-y: auto; animation: panelSlideIn 0.3s cubic-bezier(0.16,1,0.3,1); }
+        .full-pane.active { display: flex; }
+        @keyframes panelSlideIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes panelSlideOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }
+        @keyframes authFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .screen { animation: authFadeIn 0.4s cubic-bezier(0.16,1,0.3,1); }
         .full-pane.active { display: flex; }
         .panel-nav { display: flex; align-items: center; gap: 12px; padding: 12px 0; font-size: 22px; font-weight: bold; margin-bottom: 20px; cursor: pointer; }
         .panel-nav i { transition: transform 0.2s; }
@@ -1037,21 +1042,21 @@
     </div>
 
     <!-- МОДАЛКА ЗАПИСИ КРУЖКА -->
-    <div id="cameraPreviewModal">
-        <button id="closeCameraModal"><i class="fas fa-times"></i></button>
-        <div class="circle-record-inner">
-            <div class="circle-preview-wrap">
-                <video id="cameraPreview" autoplay playsinline muted></video>
-                <svg class="circle-record-ring" viewBox="0 0 252 252">
-                    <circle class="ring-bg" cx="126" cy="126" r="120" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="4"/>
+    <div id="cameraPreviewModal" style="display:none;position:fixed;inset:0;z-index:13000;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);padding:20px;">
+        <button id="closeCameraModal" style="position:absolute;top:calc(16px + var(--safe-top));right:20px;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.35);color:#fff;font-size:20px;cursor:pointer;z-index:5;display:flex;align-items:center;justify-content:center;"><i class="fas fa-times"></i></button>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:24px;">
+            <div style="position:relative;width:240px;height:240px;">
+                <video id="cameraPreview" autoplay playsinline muted style="width:100%;height:100%;border-radius:50%;object-fit:cover;background:#111;transform:scaleX(-1);"></video>
+                <svg style="position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);transform:rotate(-90deg);pointer-events:none;z-index:2;" viewBox="0 0 252 252">
+                    <circle cx="126" cy="126" r="120" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="4"/>
                     <circle id="recordProgressRing" cx="126" cy="126" r="120" fill="none" stroke="#ff3b30" stroke-width="4" stroke-linecap="round" stroke-dasharray="754" stroke-dashoffset="754"/>
                 </svg>
-                <div id="recordingTimer">0:00</div>
+                <div id="recordingTimer" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.5);padding:4px 12px;border-radius:14px;font-size:14px;font-weight:800;z-index:5;display:none;">0:00</div>
             </div>
-            <div class="circle-record-controls">
-                <button class="circle-record-btn" id="switchCameraBtnCircle" title="Сменить камеру"><i class="fas fa-sync-alt"></i></button>
-                <button class="record-main-btn" id="startRecordingBtn"><i class="fas fa-circle" style="color:#fff;"></i></button>
-                <button class="record-main-btn" id="stopRecordingBtnInner" style="display:none;background:#ff3b30;"><i class="fas fa-paper-plane" style="font-size:24px;"></i></button>
+            <div style="display:flex;gap:14px;align-items:center;">
+                <button id="switchCameraBtnCircle" style="width:48px;height:48px;border-radius:50%;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.35);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="fas fa-sync-alt"></i></button>
+                <button id="startRecordingBtn" style="width:72px;height:72px;border-radius:50%;border:4px solid rgba(255,255,255,0.6);background:#ff4757;color:#fff;font-size:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="fas fa-circle" style="color:#fff;"></i></button>
+                <button id="stopRecordingBtnInner" style="display:none;width:72px;height:72px;border-radius:50%;border:4px solid rgba(255,255,255,0.6);background:#ff3b30;color:#fff;font-size:24px;cursor:pointer;align-items:center;justify-content:center;"><i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
     </div>

@@ -1592,6 +1592,20 @@ function openChat(id, name, otherId = null) {
                 
                 if (msg.type === 'circle') initCirclePlayer(bubble);
                 
+                if (msg.type !== 'system' && msg.type !== 'call' && msg.type !== 'gift') {
+                    setupLongPress(bubble, (e) => {
+                        e.preventDefault();
+                        const msgMenu = document.getElementById('messageContextMenu');
+                        const editBtn = document.getElementById('btnMsgEdit');
+                        if (editBtn) editBtn.style.display = (msg.type === 'text' && isMy) ? 'flex' : 'none';
+                        editingMessageId = msg.id;
+                        window._editingMsgText = msg.text || '';
+                        window._editingMsgData = msg;
+                        const x = e.touches?.[0]?.clientX || e.clientX;
+                        const y = e.touches?.[0]?.clientY || e.clientY;
+                        showContextMenu(msgMenu, x, y);
+                    });
+                }
                 if (isMy && msg.type !== 'system' && msg.type !== 'call' && msg.type !== 'circle' && msg.type !== 'gift') {
                     bubble.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -1799,6 +1813,8 @@ if (cameraBtn) {
 document.getElementById('closeCameraModal')?.addEventListener('click', () => {
     document.getElementById('cameraPreviewModal').style.display = 'none';
     if (circlePreviewStream) { circlePreviewStream.getTracks().forEach(t => t.stop()); circlePreviewStream = null; }
+    const preview = document.getElementById('cameraPreview');
+    if (preview) preview.srcObject = null;
 });
 
 const backBtn = document.getElementById('btnExitChat');
@@ -2432,6 +2448,19 @@ document.getElementById('btn-admin-premium-edit')?.addEventListener('click', () 
 document.getElementById('btn-custom-edit')?.addEventListener('click', () => openPanel('language'));
 
 // ========== PROFILE TAB ==========
+function renderProfileTab(user) {
+    if (!user) return;
+    const avatar = document.getElementById('profileTabAvatar');
+    const name = document.getElementById('profileTabName');
+    const username = document.getElementById('profileTabUsername');
+    const coverImg = document.getElementById('profileCoverImg');
+    const starsCount = document.getElementById('profileStarsCount');
+    if (avatar) renderAvatar(avatar, { avatarUrl: user.avatarUrl || user.avatar, name: user.name });
+    if (name) name.textContent = user.name || 'Профиль';
+    if (username) username.textContent = user.username ? '@' + user.username : '';
+    if (coverImg && user.profileBgUrl) { coverImg.src = user.profileBgUrl; coverImg.style.display = 'block'; }
+    if (starsCount) starsCount.textContent = user.stars || 0;
+}
 function loadProfileTab() {
     if (!currentUser) return;
     const avatar = document.getElementById('profileTabAvatar');
@@ -2686,20 +2715,22 @@ document.addEventListener('click', (e) => {
     const btn = e.target.closest('.voice-msg-play');
     if (!btn) return;
     e.stopPropagation();
-    const audioId = btn.dataset.audio;
+    e.preventDefault();
+    const audioId = btn.getAttribute('data-audio');
+    if (!audioId) return;
     const audio = document.getElementById(audioId);
-    if (!audio) return;
+    if (!audio) { console.warn('Audio not found:', audioId); return; }
     const span = btn.querySelector('span');
     if (audio.paused) {
-        document.querySelectorAll('audio').forEach(a => { if (a !== audio) { a.pause(); } });
-        document.querySelectorAll('.voice-msg-play span').forEach(s => s.textContent = '▶');
-        audio.play().then(() => { if (span) span.textContent = '⏸'; }).catch(() => {});
+        document.querySelectorAll('audio').forEach(a => { if (a !== audio && !a.paused) { a.pause(); } });
+        document.querySelectorAll('.voice-msg-play span').forEach(s => { if (s !== span) s.textContent = '▶'; });
+        audio.play().then(() => { if (span) span.textContent = '⏸'; }).catch(err => { console.warn('Play error:', err); });
     } else {
         audio.pause();
         if (span) span.textContent = '▶';
     }
     audio.onended = () => { if (span) span.textContent = '▶'; };
-});
+}, true);
 
 // Secure Mode toggle with animated checkmark
 let secureModeEnabled = localStorage.getItem('spark-secure-mode') === 'true';
@@ -3853,15 +3884,19 @@ onAuthStateChanged(auth, async (user) => {
                 applySavedLanguage();
                 applySavedWallpaper();
                 syncProfile(currentUser);
-                
+                renderProfileTab(currentUser);
+
                 // UI elements specific to logged in user
                 const myNameDisplay = document.getElementById('myNameDisplay');
                 if (myNameDisplay) myNameDisplay.innerHTML = currentUser.name + getPremiumBadge(currentUser);
                 const myUserDisplay = document.getElementById('myUserDisplay');
                 if (myUserDisplay) myUserDisplay.textContent = currentUser.username;
-                
-                // Load data
+
+                // Load data immediately
                 loadChats();
+                loadFeed();
+                loadProfilePosts();
+                loadProfileReposts();
                 loadUserAvatar();
                 loadProfileBg(currentUser.profileBgUrl);
                 listenToIncomingCalls(currentUser);
@@ -3878,6 +3913,20 @@ onAuthStateChanged(auth, async (user) => {
                 renderGiftsList();
                 if (isCreator(currentUser)) loadGiftPricesForAdmin();
                 if (isPremium(currentUser) || isCreator(currentUser)) setupAutoTranslate();
+
+                // Real-time avatar listener
+                onSnapshot(doc(db, "users", currentUser.uid), (snap) => {
+                    const data = snap.data();
+                    if (!data) return;
+                    currentUser = { ...currentUser, ...data };
+                    renderProfileTab(currentUser);
+                    renderAvatar(document.getElementById('profileTabAvatar'), { avatarUrl: data.avatarUrl, name: data.name });
+                    renderAvatar(document.getElementById('chatTargetAvatar'), { avatarUrl: data.avatarUrl, name: data.name });
+                    const drawerAvatar = document.getElementById('drawerAvatar');
+                    if (drawerAvatar) renderAvatar(drawerAvatar, { avatarUrl: data.avatarUrl, name: data.name });
+                    const starsCount = document.getElementById('profileStarsCount');
+                    if (starsCount) starsCount.textContent = data.stars || 0;
+                });
                 
                 // Show admin premium button for creator only
                 const adminBtn = document.getElementById('btn-admin-premium-edit');
