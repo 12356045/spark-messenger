@@ -1032,6 +1032,15 @@ if (isl) {
     isl.addEventListener('input', e => updateIsland(e.target.value)); 
 }
 
+document.getElementById('showChangePasswordBtn')?.addEventListener('click', () => {
+    document.getElementById('securityMainMenu').style.display = 'none';
+    const form = document.getElementById('securityPasswordForm');
+    form.style.display = 'flex';
+});
+document.getElementById('hideChangePasswordBtn')?.addEventListener('click', () => {
+    document.getElementById('securityPasswordForm').style.display = 'none';
+    document.getElementById('securityMainMenu').style.display = 'flex';
+});
 const changePasswordBtn = document.getElementById('changePasswordBtn');
 if (changePasswordBtn) changePasswordBtn.addEventListener('click', async () => {
     const newP = document.getElementById('newPasswordInput')?.value;
