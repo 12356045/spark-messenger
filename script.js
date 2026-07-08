@@ -2582,6 +2582,34 @@ document.getElementById('closeDevicesPanelBtn')?.addEventListener('click', () =>
 document.getElementById('closeSecurityPanelBtn')?.addEventListener('click', () => openPanel('settings'));
 document.getElementById('closeStoragePanelBtn')?.addEventListener('click', () => openPanel('settings'));
 document.getElementById('closePremiumPanelBtn')?.addEventListener('click', () => closePanel('premium'));
+
+// Logout all devices
+document.getElementById('btnLogoutAllDevices')?.addEventListener('click', async () => {
+    if (!currentUser || !confirm('Выйти со всех устройств?')) return;
+    try {
+        const snap = await getDocs(query(collection(db, "devices"), where("userId", "==", currentUser.uid)));
+        const batch = writeBatch(db);
+        snap.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+        showDynamicIsland('Все устройства отключены', 'success');
+        loadDevices();
+    } catch(e) {
+        showDynamicIsland('Ошибка', 'error');
+    }
+});
+
+// Premium plan selection
+document.querySelectorAll('.premium-plan-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+        document.querySelectorAll('.premium-plan-option').forEach(o => {
+            o.style.background = 'rgba(255,255,255,0.35)';
+            o.style.borderColor = 'rgba(255,255,255,0.35)';
+        });
+        opt.style.background = 'rgba(255,255,255,0.55)';
+        opt.style.borderColor = 'var(--text)';
+        window.selectedPremiumPlan = opt.dataset.plan;
+    });
+});
 document.getElementById('closeAdminPremiumPanelBtn')?.addEventListener('click', () => closePanel('adminPremium'));
 document.getElementById('closeWalletPanelBtn')?.addEventListener('click', () => closePanel('wallet'));
 document.getElementById('closeGiftsPanelBtn')?.addEventListener('click', () => closePanel('gifts'));
@@ -2968,37 +2996,12 @@ async function loadDevices() {
             const device = d.data();
             const isCurrent = d.id === currentDeviceId;
             const div = document.createElement('div');
-            div.style.cssText = 'display:flex;align-items:center;gap:14px;padding:16px;background:var(--card);border-radius:16px;margin-bottom:10px;border:1px solid var(--border);';
-            const icon = device.platform === 'ios' ? 'fa-mobile-alt' : device.platform === 'android' ? 'fa-android' : 'fa-globe';
-            const statusColor = isCurrent ? '#2ecc71' : 'var(--text-secondary)';
-            const lastActive = device.lastActive?.toDate ? device.lastActive.toDate().toLocaleString() : 'Неизвестно';
-            div.innerHTML = `<div style="width:44px;height:44px;background:rgba(255,255,255,0.05);border-radius:12px;display:flex;align-items:center;justify-content:center;"><i class="fas ${icon}" style="font-size:20px;color:var(--text);"></i></div>
-                <div style="flex:1;">
-                    <div style="font-weight:600;color:var(--text);font-size:14px;">${device.brand || device.platform || 'Устройство'} ${isCurrent ? '(это устройство)' : ''}</div>
-                    <div style="font-size:12px;color:${statusColor};">${isCurrent ? 'Активно' : 'Последний вход: ' + lastActive}</div>
-                </div>
-                ${!isCurrent ? `<button class="small-btn removeDeviceBtn" data-device="${d.id}" style="background:#e74c3c;">Удалить</button>` : ''}`;
+            const platform = device.platform || 'unknown';
+            const platformName = platform === 'ios' ? 'Apple' : platform === 'android' ? 'Android' : platform === 'win' || platform === 'windows' ? 'Microsoft' : platform === 'mac' ? 'MacOS' : platform;
+            const lastActive = device.lastActive?.toDate ? device.lastActive.toDate().toLocaleDateString('ru-RU') : 'Н/Д';
+            div.style.cssText = 'width:100%;height:45px;border-radius:50px;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:var(--text);';
+            div.textContent = `${platformName}:последний вход ${lastActive}`;
             container.appendChild(div);
-        });
-        
-        container.querySelectorAll('.removeDeviceBtn').forEach(btn => {
-            btn.onclick = async () => {
-                if (!confirm('Удалить устройство? Пользователь будет отключён.')) return;
-                const deviceId = btn.dataset.device;
-                const deviceDoc = await getDoc(doc(db, "devices", deviceId));
-                if (deviceDoc.exists()) {
-                    const deviceData = deviceDoc.data();
-                    // Remove FCM token from user
-                    if (deviceData.fcmToken) {
-                        await updateDoc(doc(db, "users", currentUser.uid), {
-                            fcmTokens: arrayRemove(deviceData.fcmToken)
-                        });
-                    }
-                    await deleteDoc(doc(db, "devices", deviceId));
-                    showDynamicIsland('Устройство удалено', 'success');
-                    loadDevices();
-                }
-            };
         });
     } catch (e) {
         console.error('Load devices error:', e);

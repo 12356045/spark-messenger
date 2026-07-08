@@ -1217,10 +1217,16 @@
 
     <!-- ПАНЕЛЬ УСТРОЙСТВ -->
     <div id="panelDevices" class="full-pane">
-        <div class="panel-nav"><i class="fas fa-chevron-left" id="closeDevicesPanelBtn"></i>Устройства</div>
-        <div id="deviceList" style="padding: 20px;"></div>
-        <div style="text-align:center;margin-top:20px;">
-            <button class="btn" id="btnShowQR" style="width:auto;padding:12px 30px;"><i class="fas fa-qrcode"></i> Добавить устройство</button>
+        <div style="display:flex;align-items:center;padding:12px 0;margin-bottom:16px;">
+            <button onclick="openPanel('settings')" style="width:45px;height:45px;border-radius:50%;border:none;background:rgba(255,255,255,0.35);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.3);flex-shrink:0;"><i class="fas fa-chevron-left"></i></button>
+            <div style="flex:1;"></div>
+            <div class="glass-panel" style="padding:8px 20px;font-size:15px;font-weight:700;color:var(--text);">Устройства</div>
+        </div>
+        <div style="display:flex;justify-content:center;">
+            <div style="width:348px;border-radius:22px;background:rgba(255,255,255,0.28);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border:1px solid rgba(255,255,255,0.35);box-shadow:0 8px 32px rgba(0,0,0,0.12),inset 0 1px 2px rgba(255,255,255,0.4);padding:16px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+                <div id="deviceList" style="width:100%;display:flex;flex-direction:column;gap:8px;"></div>
+                <button id="btnLogoutAllDevices" style="width:301px;height:45px;border-radius:50px;border:none;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);font-size:15px;font-weight:600;color:var(--text);cursor:pointer;transition:transform 0.15s;">Выйти со всех устройств</button>
+            </div>
         </div>
     </div>
 
@@ -1254,9 +1260,11 @@
         <!-- Форма смены пароля (скрыта по умолчанию) -->
         <div id="securityPasswordForm" style="display:none;justify-content:center;animation:fadeSlideIn 0.3s ease;">
             <div style="width:297px;border-radius:22px;background:rgba(255,255,255,0.28);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border:1px solid rgba(255,255,255,0.35);box-shadow:0 8px 32px rgba(0,0,0,0.12),inset 0 1px 2px rgba(255,255,255,0.4);padding:16px;display:flex;flex-direction:column;align-items:center;gap:8px;">
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <button id="hideChangePasswordBtn" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,255,255,0.35);color:var(--text);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas fa-chevron-left"></i></button>
-                    <div style="width:112px;height:45px;border-radius:50px;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:var(--text);">Пароль</div>
+                <div style="display:flex;align-items:center;width:100%;margin-bottom:4px;">
+                    <button id="hideChangePasswordBtn" style="width:45px;height:45px;border-radius:50%;border:none;background:rgba(255,255,255,0.35);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.3);flex-shrink:0;"><i class="fas fa-chevron-left"></i></button>
+                    <div style="flex:1;display:flex;justify-content:center;">
+                        <div style="width:112px;height:45px;border-radius:50px;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:var(--text);">Пароль</div>
+                    </div>
                 </div>
                 <input type="password" id="newPasswordInput" placeholder="Новый пароль" style="width:261px;height:45px;border-radius:50px;border:none;background:rgba(255,255,255,0.35);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:0 18px;font-size:15px;color:var(--text);outline:none;font-family:inherit;">
                 <input type="password" id="confirmPasswordInput" placeholder="Повторите новый пароль" style="width:261px;height:45px;border-radius:50px;border:none;background:rgba(255,255,255,0.35);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:0 18px;font-size:15px;color:var(--text);outline:none;font-family:inherit;">
@@ -1279,57 +1287,39 @@
 
     <!-- ПАНЕЛЬ SPARK PREMIUM -->
     <div id="panelPremium" class="full-pane">
-        <div class="panel-nav"><i class="fas fa-chevron-left" id="closePremiumPanelBtn"></i>SPARK Premium</div>
-        <div style="text-align:center;padding:30px 20px 10px;">
-            <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#ffffff,#333333);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:36px;color:#fff;"><i class="fas fa-star"></i></div>
-            <h2 style="margin-bottom:8px;">SPARK Premium</h2>
-            <p id="premiumStatusText" style="color:var(--text-secondary);font-size:14px;margin-bottom:24px;">Не активирован</p>
+        <div style="display:flex;align-items:center;padding:12px 0;margin-bottom:8px;">
+            <button onclick="closePanel('premium')" style="width:45px;height:45px;border-radius:50%;border:none;background:rgba(255,255,255,0.35);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.3);flex-shrink:0;"><i class="fas fa-chevron-left"></i></button>
+            <div style="flex:1;"></div>
+            <div class="glass-panel" style="padding:8px 20px;font-size:15px;font-weight:700;color:var(--text);">Premium</div>
         </div>
-        <div style="padding:0 20px;">
-            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
-                <h4 style="margin-bottom:12px;color:var(--accent);"><i class="fas fa-star"></i> Возможности Premium:</h4>
-                <div style="display:flex;flex-direction:column;gap:10px;">
-                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-thumbtack" style="color:var(--accent);width:20px;"></i><span>Безлимитные закрепы</span></div>
-                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-broadcast-tower" style="color:var(--accent);width:20px;"></i><span>Безлимитные каналы</span></div>
-                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-users" style="color:var(--accent);width:20px;"></i><span>Безлимитные группы</span></div>
-                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-dot-circle" style="color:var(--accent);width:20px;"></i><span>Кружки до 10 минут</span></div>
-                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-language" style="color:var(--accent);width:20px;"></i><span>Авто-перевод сообщений</span></div>
-                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-robot" style="color:var(--accent);width:20px;"></i><span>AI-бот переводчик</span></div>
-                    <div style="display:flex;align-items:center;gap:10px;"><i class="fas fa-star" style="color:var(--accent);width:20px;"></i><span>★ Значок рядом с именем</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+            <!-- Логотип SPARK -->
+            <div style="width:149px;height:149px;border-radius:50%;background:rgba(255,255,255,0.15);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                <img src="icon.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0.8;" alt="SPARK">
+            </div>
+            <!-- Табличка SPARK -->
+            <div style="width:102px;height:45px;border-radius:50px;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--text);">SPARK</div>
+            <!-- Статус -->
+            <div id="premiumStatusText" style="font-size:14px;color:var(--text-secondary);margin-bottom:4px;">Не активирован</div>
+            <!-- Панель тарифов -->
+            <div style="width:348px;border-radius:22px;background:rgba(255,255,255,0.28);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border:1px solid rgba(255,255,255,0.35);box-shadow:0 8px 32px rgba(0,0,0,0.12),inset 0 1px 2px rgba(255,255,255,0.4);padding:16px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+                <div id="premiumPlans" style="width:100%;display:flex;flex-direction:column;gap:8px;">
+                    <div class="premium-plan-option" data-plan="month" style="width:307px;height:45px;border-radius:50px;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:space-between;padding:0 20px;cursor:pointer;transition:transform 0.15s;">
+                        <span style="font-size:15px;font-weight:600;color:var(--text);">30 Дней</span>
+                        <span style="font-size:14px;font-weight:700;color:var(--text);">100 звезд</span>
+                    </div>
+                    <div class="premium-plan-option" data-plan="year" style="width:319px;height:45px;border-radius:50px;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:space-between;padding:0 20px;cursor:pointer;transition:transform 0.15s;">
+                        <span style="font-size:15px;font-weight:600;color:var(--text);">365 Дней</span>
+                        <span style="font-size:14px;font-weight:700;color:var(--text);">500 звезд</span>
+                    </div>
+                    <div class="premium-plan-option" data-plan="forever" style="width:319px;height:45px;border-radius:50px;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:space-between;padding:0 20px;cursor:pointer;transition:transform 0.15s;">
+                        <span style="font-size:15px;font-weight:600;color:var(--text);">Навсегда</span>
+                        <span style="font-size:14px;font-weight:700;color:var(--text);">1000 звезд</span>
+                    </div>
                 </div>
             </div>
-            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
-                <h4 style="margin-bottom:12px;"><i class="fas fa-tags"></i> Выберите тариф:</h4>
-                <div style="display:flex;flex-direction:column;gap:10px;" id="premiumPlans">
-                    <label class="premium-plan-option" data-plan="month" style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid var(--border);border-radius:12px;cursor:pointer;transition:border-color 0.2s;">
-                        <input type="radio" name="premiumPlan" value="month" style="display:none;">
-                        <div style="width:22px;height:22px;border-radius:50%;border:2px solid var(--text-secondary);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color 0.2s;"></div>
-                        <div style="flex:1;"><div style="font-weight:700;">1 месяц</div><div style="font-size:12px;color:var(--text-secondary);">Доступ на 30 дней</div></div>
-                        <div style="font-weight:900;font-size:18px;color:var(--accent);"><i class="fas fa-star" style="font-size:14px;"></i> 100</div>
-                    </label>
-                    <label class="premium-plan-option" data-plan="year" style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid var(--border);border-radius:12px;cursor:pointer;transition:border-color 0.2s;">
-                        <input type="radio" name="premiumPlan" value="year" style="display:none;">
-                        <div style="width:22px;height:22px;border-radius:50%;border:2px solid var(--text-secondary);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color 0.2s;"></div>
-                        <div style="flex:1;"><div style="font-weight:700;">1 год <span style="background:#2ecc71;color:#fff;font-size:10px;padding:2px 6px;border-radius:6px;font-weight:600;">-58%</span></div><div style="font-size:12px;color:var(--text-secondary);">Доступ на 365 дней</div></div>
-                        <div style="font-weight:900;font-size:18px;color:var(--accent);"><i class="fas fa-star" style="font-size:14px;"></i> 500</div>
-                    </label>
-                    <label class="premium-plan-option" data-plan="forever" style="display:flex;align-items:center;gap:12px;padding:14px;border:2px solid var(--border);border-radius:12px;cursor:pointer;transition:border-color 0.2s;">
-                        <input type="radio" name="premiumPlan" value="forever" style="display:none;">
-                        <div style="width:22px;height:22px;border-radius:50%;border:2px solid var(--text-secondary);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color 0.2s;"></div>
-                        <div style="flex:1;"><div style="font-weight:700;">Навсегда <span style="background:linear-gradient(135deg,#ffffff,#333333);color:#fff;font-size:10px;padding:2px 6px;border-radius:6px;font-weight:600;">ЛУЧШИЙ</span></div><div style="font-size:12px;color:var(--text-secondary);">Бессрочный доступ</div></div>
-                        <div style="font-weight:900;font-size:18px;color:var(--accent);"><i class="fas fa-star" style="font-size:14px;"></i> 1000</div>
-                    </label>
-                </div>
-            </div>
-            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;">
-                <h4 style="margin-bottom:12px;"><i class="fas fa-star"></i> Оплата звёздами:</h4>
-                <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">Сумма: <strong style="color:var(--accent);" id="premiumAmountDisplay">100 ★</strong></p>
-                <p style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">Ваш баланс: <strong style="color:var(--accent);" id="premiumBalanceDisplay">0 ★</strong></p>
-            </div>
-            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:16px;">
-                <button class="btn" id="btnBuyPremiumStars" style="width:100%;background:linear-gradient(135deg,#ffffff,#333333);color:#fff;"><i class="fas fa-star"></i> Купить Premium за звёзды</button>
-            </div>
-            <div id="premiumActivateMessage" style="text-align:center;font-size:13px;color:var(--text-secondary);display:none;margin-bottom:20px;"></div>
+            <!-- Кнопка купить -->
+            <button id="btnBuyPremiumStars" style="width:162px;height:45px;border-radius:50px;border:none;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);font-size:15px;font-weight:600;color:var(--text);cursor:pointer;transition:transform 0.15s;">Купить Premium</button>
         </div>
     </div>
 
