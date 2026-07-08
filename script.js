@@ -58,6 +58,8 @@ let contextMenuChatId = null;
 let notificationsEnabled = false;
 let mediaRecorderVoice = null, audioChunksVoice = [], isRecordingVoice = false;
 let onlineStatusInterval = null;
+let userStars = 0;
+let giftPrices = null;
 let unsubChatUser = null;
 let statusRefreshInterval = null;
 let unsubChats = null;
@@ -3874,7 +3876,7 @@ document.querySelectorAll('.premium-plan-option').forEach(opt => {
     });
 });
 const defaultPlan = document.querySelector('.premium-plan-option[data-plan="month"]');
-if (defaultPlan) { defaultPlan.classList.add('selected'); defaultPlan.querySelector('input[type=radio]').checked = true; }
+if (defaultPlan) { defaultPlan.classList.add('selected'); defaultPlan.style.background = 'rgba(255,255,255,0.55)'; defaultPlan.style.borderColor = 'var(--text)'; }
 
 // Phone payment removed - now using stars only
 
@@ -5658,7 +5660,6 @@ window.sendFeedComment = async function(postId) {
 };
 
 // ========== STARS SYSTEM ==========
-let userStars = 0;
 let clickerPendingStars = 0;
 let clickerTotalTaps = 0;
 
@@ -5837,7 +5838,7 @@ async function loadGiftPrices() {
 
 function renderGiftsList() {
     const container = document.getElementById('giftsList');
-    if (!container) return;
+    if (!container || !giftPrices) return;
     container.innerHTML = '';
 
     for (const [key, gift] of Object.entries(giftPrices)) {
