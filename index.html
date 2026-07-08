@@ -582,6 +582,16 @@
         @keyframes panelReveal { from { opacity: 0.5; } to { opacity: 1; } }
         @keyframes sendPop { from { transform: scale(0); } to { transform: scale(1); } }
         @keyframes typingBounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-4px); } }
+        @keyframes voiceBar { 0%, 100% { height: 4px; } 50% { height: 20px; } }
+        .voice-bars { display: flex; align-items: center; gap: 2px; height: 28px; }
+        .voice-bar { width: 3px; border-radius: 2px; background: var(--text); animation: voiceBar 0.6s ease-in-out infinite; }
+        .voice-bar:nth-child(1) { animation-delay: 0s; }
+        .voice-bar:nth-child(2) { animation-delay: 0.1s; }
+        .voice-bar:nth-child(3) { animation-delay: 0.2s; }
+        .voice-bar:nth-child(4) { animation-delay: 0.3s; }
+        .voice-bar:nth-child(5) { animation-delay: 0.15s; }
+        .voice-msg-play { width: 36px; height: 36px; border-radius: 50%; border: none; background: rgba(255,255,255,0.4); color: var(--text); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .voice-msg-play:active { transform: scale(0.9); }
         @keyframes giftCirclePop { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.2); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes fadeOut { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
 
@@ -905,12 +915,12 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                 </div>
             </div>
-            <div class="hdr-expanded" id="chatExpanded">
-                <button class="hdr-action-pill" id="btnPhoneCall">
+            <div class="hdr-expanded" id="chatExpanded" style="display:none;justify-content:center;gap:10px;margin-top:4px;">
+                <button class="hdr-action-pill" id="btnPhoneCall" style="width:130px;height:40px;border-radius:50px;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);font-size:13px;font-weight:600;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                     Звонок
                 </button>
-                <button class="hdr-action-pill" id="btnVideoCall">
+                <button class="hdr-action-pill" id="btnVideoCall" style="width:130px;height:40px;border-radius:50px;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);font-size:13px;font-weight:600;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
                     Видео
                 </button>
@@ -961,15 +971,23 @@
             </div>
         </div>
         <div class="messages-area" id="messagesArea"></div>
-        <div class="chat-input-bar">
+            <div class="chat-input-bar" id="chatInputBar">
             <div class="icon-btn" id="btnCamera" style="display:flex;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             </div>
-            <div class="input-capsule">
+            <div class="input-capsule" id="inputCapsule">
                 <div id="btnPaperclip" style="cursor:pointer;margin-right:6px;color:rgba(0,0,0,0.35);display:flex;align-items:center;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 </div>
                 <input type="text" id="msgInput" placeholder="Сообщение...">
+            </div>
+            <div id="voiceRecordIndicator" style="display:none;flex:1;align-items:center;gap:10px;background:rgba(255,255,255,0.4);border-radius:50px;padding:8px 16px;border:1px solid rgba(255,255,255,0.45);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);">
+                <div class="voice-bars">
+                    <span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span>
+                </div>
+                <span id="voiceRecordTimer" style="font-size:14px;font-weight:600;color:var(--text);flex-shrink:0;">0:00</span>
+                <span style="flex:1;"></span>
+                <span style="font-size:12px;color:var(--text-secondary);">Отпустите для отправки</span>
             </div>
             <div class="icon-btn" id="voiceBtn">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -1416,15 +1434,18 @@
 
     <!-- ПАНЕЛЬ АДМИН-ПАНЕЛИ (ТОЛЬКО ДЛЯ @kail) -->
     <div id="panelAdminPremium" class="full-pane">
-        <div class="panel-nav"><i class="fas fa-chevron-left" id="closeAdminPremiumPanelBtn"></i>Admin</div>
-        <div style="padding:0 20px 20px;">
-            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
-                <input type="text" id="adminTargetUser" class="input" placeholder="@username" style="margin:0;">
-                <button class="btn" style="background:var(--card);color:var(--text);width:100%;" id="btnAdminBan"><i class="fas fa-ban"></i> выдать бан</button>
-                <button class="btn" style="background:var(--card);color:var(--text);width:100%;" id="btnAdminGiveStars"><i class="fas fa-star"></i> выдать зв</button>
-                <button class="btn" style="background:var(--card);color:var(--text);width:100%;" id="btnAdminGivePremium"><i class="fas fa-crown"></i> выдать пр</button>
+        <div style="display:flex;align-items:center;padding:12px 0;margin-bottom:16px;">
+            <button onclick="openPanel('settings')" style="width:45px;height:45px;border-radius:50%;border:none;background:rgba(255,255,255,0.35);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.3);flex-shrink:0;"><i class="fas fa-chevron-left"></i></button>
+            <div style="flex:1;"></div>
+            <div class="glass-panel" style="padding:8px 20px;font-size:15px;font-weight:700;color:var(--text);">Admin</div>
+        </div>
+        <div style="display:flex;justify-content:center;">
+            <div style="width:297px;border-radius:22px;background:rgba(255,255,255,0.28);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border:1px solid rgba(255,255,255,0.35);box-shadow:0 8px 32px rgba(0,0,0,0.12),inset 0 1px 2px rgba(255,255,255,0.4);padding:16px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+                <input type="text" id="adminTargetUser" placeholder="@username" autocomplete="off" style="width:261px;height:45px;border-radius:50px;border:none;background:rgba(255,255,255,0.35);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:0 18px;font-size:15px;color:var(--text);outline:none;font-family:inherit;text-align:center;">
+                <button id="btnAdminBan" style="width:261px;height:45px;border-radius:50px;border:none;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);font-size:15px;font-weight:600;color:var(--text);cursor:pointer;transition:transform 0.15s;">Выдать бан</button>
+                <button id="btnAdminGiveStars" style="width:261px;height:45px;border-radius:50px;border:none;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);font-size:15px;font-weight:600;color:var(--text);cursor:pointer;transition:transform 0.15s;">Выдать звёзды</button>
+                <button id="btnAdminGivePremium" style="width:261px;height:45px;border-radius:50px;border:none;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);font-size:15px;font-weight:600;color:var(--text);cursor:pointer;transition:transform 0.15s;">Выдать Premium</button>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;" id="adminGiftPrices"></div>
         </div>
     </div>
 

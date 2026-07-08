@@ -893,7 +893,32 @@ if (fileInput) {
 }
 
 // ========== ГОЛОСОВЫЕ (через Storage) ==========
+let voiceRecordInterval = null;
+let voiceRecordSeconds = 0;
 const voiceRecordBtn = document.getElementById('voiceBtn');
+const voiceRecordIndicator = document.getElementById('voiceRecordIndicator');
+const voiceRecordTimer = document.getElementById('voiceRecordTimer');
+const inputCapsule = document.getElementById('inputCapsule');
+const chatInputBar = document.getElementById('chatInputBar');
+
+function showVoiceIndicator() {
+    if (voiceRecordIndicator) voiceRecordIndicator.style.display = 'flex';
+    if (inputCapsule) inputCapsule.style.display = 'none';
+    voiceRecordSeconds = 0;
+    if (voiceRecordTimer) voiceRecordTimer.textContent = '0:00';
+    voiceRecordInterval = setInterval(() => {
+        voiceRecordSeconds++;
+        const m = Math.floor(voiceRecordSeconds / 60);
+        const s = voiceRecordSeconds % 60;
+        if (voiceRecordTimer) voiceRecordTimer.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    }, 1000);
+}
+function hideVoiceIndicator() {
+    if (voiceRecordIndicator) voiceRecordIndicator.style.display = 'none';
+    if (inputCapsule) inputCapsule.style.display = 'flex';
+    if (voiceRecordInterval) { clearInterval(voiceRecordInterval); voiceRecordInterval = null; }
+}
+
 if (voiceRecordBtn) {
     voiceRecordBtn.addEventListener('click', async () => {
         if (!currentChatId) { showDynamicIsland('Выберите чат', 'error'); return; }
@@ -911,6 +936,7 @@ if (voiceRecordBtn) {
                 const blobType = mimeType || mediaRecorderVoice.mimeType || 'audio/mp4';
                 const blob = new Blob(audioChunksVoice, { type: blobType });
                 stream.getTracks().forEach(t => t.stop());
+                hideVoiceIndicator();
                 if (!blob.size || !currentChatId) {
                     isRecordingVoice = false;
                     voiceRecordBtn.classList.remove('recording');
@@ -925,8 +951,8 @@ if (voiceRecordBtn) {
                         reader.onerror = () => reject(new Error('readFile failed'));
                         reader.readAsDataURL(blob);
                     });
-                    await addDoc(collection(db, "messages"), { chatId: currentChatId, type: 'voice', content: dataUrl, mimeType: blobType, senderId: currentUser.uid, senderName: currentUser.name, timestamp: serverTimestamp(), _localTime: Date.now() });
-                    await updateDoc(doc(db, "chats", currentChatId), { lastMessage: 'Голосовое', lastMessageTime: serverTimestamp() });
+                    await addDoc(collection(db, "messages"), { chatId: currentChatId, type: 'voice', content: dataUrl, mimeType: blobType, duration: voiceRecordSeconds, senderId: currentUser.uid, senderName: currentUser.name, timestamp: serverTimestamp(), _localTime: Date.now() });
+                    await updateDoc(doc(db, "chats", currentChatId), { lastMessage: '🎤 Голосовое', lastMessageTime: serverTimestamp() });
                     showDynamicIsland('Голосовое отправлено', 'success');
                 } catch (err) {
                     console.error('Ошибка отправки голосового:', err);
@@ -939,7 +965,7 @@ if (voiceRecordBtn) {
             mediaRecorderVoice.start();
             isRecordingVoice = true;
             voiceRecordBtn.classList.add('recording');
-            showDynamicIsland('Запись... нажмите ещё раз для отправки', 'recording');
+            showVoiceIndicator();
         } catch (err) {
             console.error('Ошибка записи голоса:', err);
             showDynamicIsland('Нет доступа к микрофону', 'error');
@@ -1494,7 +1520,17 @@ function openChat(id, name, otherId = null) {
                 } 
                 else if(msg.type === 'voice') { 
                     const audioSrc = getBlobUrlFromBase64(msg.content);
-                    content = `<audio controls preload="metadata" playsinline src="${audioSrc}" style="max-width:220px;height:40px;border-radius:20px;"></audio>`; 
+                    const dur = msg.duration || 0;
+                    const durStr = dur > 0 ? `${Math.floor(dur/60)}:${(dur%60).toString().padStart(2,'0')}` : '0:00';
+                    const msgId = 'voice_' + msg.id;
+                    content = `<div style="display:flex;align-items:center;gap:10px;min-width:180px;">
+                        <button class="voice-msg-play" onclick="event.stopPropagation();const a=document.getElementById('${msgId}');if(a.paused){a.play();this.innerHTML='⏸';}else{a.pause();this.innerHTML='▶';}"><span>▶</span></button>
+                        <div class="voice-bars" style="opacity:0.5;">
+                            <span class="voice-bar" style="animation-duration:0.5s;"></span><span class="voice-bar" style="animation-duration:0.7s;"></span><span class="voice-bar" style="animation-duration:0.4s;"></span><span class="voice-bar" style="animation-duration:0.6s;"></span><span class="voice-bar" style="animation-duration:0.55s;"></span>
+                        </div>
+                        <span style="font-size:12px;color:var(--text-secondary);flex-shrink:0;">${durStr}</span>
+                        <audio id="${msgId}" preload="metadata" playsinline src="${audioSrc}" style="display:none;" onended="this.previousElementSibling?.previousElementSibling?.previousElementSibling?.querySelector('span').textContent='▶';"></audio>
+                    </div>`; 
                 } 
                 else if(msg.type === 'call') {
                     const callerName = await getCustomNameForUser(msg.callerId);
@@ -2838,7 +2874,17 @@ function openChannel(id, name, channelData) {
                     content = `<a href="${src}" download="${msg.fileName}" target="_blank" class="file-message"><i class="fas fa-file"></i><span>${escape(msg.fileName)}</span><i class="fas fa-download"></i></a>`;
                 } else if (msg.type === 'voice') {
                     const audioSrc = getBlobUrlFromBase64(msg.content);
-                    content = `<audio controls preload="metadata" playsinline src="${audioSrc}" style="max-width:220px;height:40px;border-radius:20px;"></audio>`;
+                    const dur = msg.duration || 0;
+                    const durStr = dur > 0 ? `${Math.floor(dur/60)}:${(dur%60).toString().padStart(2,'0')}` : '0:00';
+                    const msgId = 'vc_' + msg.id;
+                    content = `<div style="display:flex;align-items:center;gap:10px;min-width:180px;">
+                        <button class="voice-msg-play" onclick="event.stopPropagation();const a=document.getElementById('${msgId}');if(a.paused){a.play();this.querySelector('span').textContent='⏸';}else{a.pause();this.querySelector('span').textContent='▶';}"><span>▶</span></button>
+                        <div class="voice-bars" style="opacity:0.5;">
+                            <span class="voice-bar" style="animation-duration:0.5s;"></span><span class="voice-bar" style="animation-duration:0.7s;"></span><span class="voice-bar" style="animation-duration:0.4s;"></span><span class="voice-bar" style="animation-duration:0.6s;"></span><span class="voice-bar" style="animation-duration:0.55s;"></span>
+                        </div>
+                        <span style="font-size:12px;color:var(--text-secondary);flex-shrink:0;">${durStr}</span>
+                        <audio id="${msgId}" preload="metadata" playsinline src="${audioSrc}" style="display:none;" onended="this.parentElement.querySelector('.voice-msg-play span').textContent='▶';"></audio>
+                    </div>`;
                 } else if (msg.type === 'system') {
                     content = `<div class="message-text" style="font-style: italic; opacity: 0.7;">${escape(msg.text)}</div>`;
                 } else if (msg.type === 'gift') {
