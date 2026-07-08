@@ -1235,25 +1235,41 @@
     </div>
     <div id="panelSecurity" class="full-pane">
         <div style="display:flex;align-items:center;padding:12px 0;margin-bottom:16px;">
-            <button onclick="openPanel('settings')" style="width:42px;height:42px;border-radius:50%;border:none;background:rgba(255,255,255,0.35);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.3);flex-shrink:0;"><i class="fas fa-chevron-left"></i></button>
+            <button onclick="openPanel('settings')" style="width:45px;height:45px;border-radius:50%;border:none;background:rgba(255,255,255,0.35);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.3);flex-shrink:0;"><i class="fas fa-chevron-left"></i></button>
             <div style="flex:1;"></div>
             <div class="glass-panel" style="padding:8px 20px;font-size:15px;font-weight:700;color:var(--text);">Безопасность</div>
         </div>
         <div style="display:flex;justify-content:center;">
-            <div id="securityCard" style="width:297px;border-radius:22px;background:rgba(255,255,255,0.28);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border:1px solid rgba(255,255,255,0.35);box-shadow:0 8px 32px rgba(0,0,0,0.12),inset 0 1px 2px rgba(255,255,255,0.4);padding:16px;display:flex;flex-direction:column;align-items:center;gap:8px;">
-                <div id="secureModeBtn" style="width:200px;height:45px;border-radius:16px;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);cursor:pointer;font-size:15px;font-weight:600;color:var(--text);transition:transform 0.15s;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden;">
+            <div style="width:297px;height:252px;border-radius:22px;background:rgba(255,255,255,0.28);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border:1px solid rgba(255,255,255,0.35);box-shadow:0 8px 32px rgba(0,0,0,0.12),inset 0 1px 2px rgba(255,255,255,0.4);padding:16px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+                <div id="secureModeBtn" style="width:200px;height:45px;border-radius:50px;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);cursor:pointer;font-size:15px;font-weight:600;color:var(--text);transition:transform 0.15s;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden;">
                     <span id="secureModeText">Secure Mode (E2EE)</span>
-                    <div id="secureModeCheck" style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(0);transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);flex-shrink:0;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <div id="secureModeCheck" style="width:28px;height:28px;border-radius:50%;background:var(--text);display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(0);transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);flex-shrink:0;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
                 </div>
-                <button id="changePasswordBtn" style="width:200px;height:45px;border-radius:16px;border:none;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);font-size:15px;font-weight:600;color:var(--text);cursor:pointer;transition:transform 0.15s;">Сменить пароль</button>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:28px;height:28px;border-radius:50%;background:var(--text);display:flex;align-items:center;justify-content:center;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <div style="width:112px;height:45px;border-radius:50px;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:var(--text);">Пароль</div>
+                </div>
+                <input type="password" id="newPasswordInput" placeholder="Новый пароль" style="width:261px;height:45px;border-radius:50px;border:none;background:rgba(255,255,255,0.35);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:0 18px;font-size:15px;color:var(--text);outline:none;font-family:inherit;">
+                <input type="password" id="confirmPasswordInput" placeholder="Повторите новый пароль" style="width:261px;height:45px;border-radius:50px;border:none;background:rgba(255,255,255,0.35);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:0 18px;font-size:15px;color:var(--text);outline:none;font-family:inherit;">
+                <button id="changePasswordBtn" style="width:200px;height:45px;border-radius:50px;border:none;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);font-size:15px;font-weight:600;color:var(--text);cursor:pointer;transition:transform 0.15s;">Сменить пароль</button>
             </div>
         </div>
     </div>
     <div id="panelStorage" class="full-pane">
-        <div class="panel-nav"><i class="fas fa-chevron-left" id="closeStoragePanelBtn"></i>Хранилище</div>
-        <button class="btn" style="background:#ff3b30; color:#fff;" id="btnClearCache">Очистить кэш</button>
+        <div style="display:flex;align-items:center;padding:12px 0;margin-bottom:16px;">
+            <button onclick="openPanel('settings')" style="width:45px;height:45px;border-radius:50%;border:none;background:rgba(255,255,255,0.35);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.3);flex-shrink:0;"><i class="fas fa-chevron-left"></i></button>
+            <div style="flex:1;"></div>
+            <div class="glass-panel" style="padding:8px 20px;font-size:15px;font-weight:700;color:var(--text);">Хранилище</div>
+        </div>
+        <div style="display:flex;justify-content:center;">
+            <div style="width:297px;height:82px;border-radius:22px;background:rgba(255,255,255,0.28);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border:1px solid rgba(255,255,255,0.35);box-shadow:0 8px 32px rgba(0,0,0,0.12),inset 0 1px 2px rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;">
+                <button id="btnClearCache" style="width:200px;height:45px;border-radius:50px;border:none;background:rgba(255,255,255,0.35);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.35);font-size:15px;font-weight:600;color:var(--text);cursor:pointer;transition:transform 0.15s;">Очистить кэш</button>
+            </div>
+        </div>
     </div>
 
     <!-- ПАНЕЛЬ SPARK PREMIUM -->

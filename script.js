@@ -1033,7 +1033,22 @@ if (isl) {
 }
 
 const changePasswordBtn = document.getElementById('changePasswordBtn');
-if (changePasswordBtn) changePasswordBtn.addEventListener('click', () => document.getElementById('passwordModal').classList.add('active'));
+if (changePasswordBtn) changePasswordBtn.addEventListener('click', async () => {
+    const newP = document.getElementById('newPasswordInput')?.value;
+    const confP = document.getElementById('confirmPasswordInput')?.value;
+    if (!newP) return showDynamicIsland('Введите новый пароль', 'error');
+    if (newP.length < 6) return showDynamicIsland('Минимум 6 символов', 'error');
+    if (newP !== confP) return showDynamicIsland('Пароли не совпадают', 'error');
+    try {
+        const user = auth.currentUser;
+        await updatePassword(user, newP);
+        showDynamicIsland('Пароль изменён', 'success');
+        if (document.getElementById('newPasswordInput')) document.getElementById('newPasswordInput').value = '';
+        if (document.getElementById('confirmPasswordInput')) document.getElementById('confirmPasswordInput').value = '';
+    } catch(e) {
+        showDynamicIsland('Ошибка: ' + (e.message || e), 'error');
+    }
+});
 const closePasswordModal = document.querySelector('.closePasswordModal');
 if (closePasswordModal) closePasswordModal.addEventListener('click', () => document.getElementById('passwordModal').classList.remove('active'));
 const savePasswordBtn = document.getElementById('savePasswordBtn');
